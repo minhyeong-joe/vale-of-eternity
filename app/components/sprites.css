@@ -1,0 +1,112 @@
+.sprite {
+    background: url('assets/css_sprites.webp') no-repeat;
+    flex-shrink: 0;
+}
+
+/* Scale utilities for sprites */
+.sprite.x100 { transform: scale(1); transform-origin: top left; }
+.sprite.x75 { transform: scale(0.75); transform-origin: top left; }
+.sprite.x50 { transform: scale(0.5); transform-origin: top left; }
+
+.sprite.card-back {
+    width: 125px;
+    height: 205px;
+    background-position: -2px -2px;
+}
+.sprite.title {
+    width: 250px;
+    height: 100px;
+    background-position: -130px -2px;
+}
+.sprite.water-cards-header {
+    width: 250px;
+    height: 85px;
+    background-position: 0px -208px;
+}
+.sprite.fire-cards-header {
+    width: 250px;
+    height: 85px;
+    background-position: -131px -104px;
+}
+.sprite.earth-cards-header {
+    width: 250px;
+    height: 85px;
+    background-position: 0px -295px;
+}
+.sprite.air-cards-header {
+    width: 250px;
+    height: 85px;
+    background-position: -382px -85px;
+}
+.sprite.dragon-cards-header {
+    width: 250px;
+    height: 85px;
+    background-position: -382px -1px;
+}
+.sprite.stone-1 {
+    width: 85px;
+    height: 83px;
+    background-position: -422px -594px;
+}
+.sprite.stone-3 {
+    width: 85px;
+    height: 83px;
+    background-position: -628px -594px;
+}
+.sprite.stone-6 {
+    width: 91px;
+    height: 83px;
+    background-position: -521px -594px;
+}
+.sprite.description-score-1 {
+    width: 26px;
+    height: 27px;
+    background-position: -252px -211px;
+}
+.sprite.description-score-2 {
+    width: 26px;
+    height: 27px;
+    background-position: -279px -211px;
+}
+.sprite.description-score-3 {
+    width: 26px;
+    height: 27px;
+    background-position: -308px -210px;
+}
+.sprite.description-score-4 {
+    width: 26px;
+    height: 27px;
+    background-position: -335px -210px;
+}
+.sprite.description-score-5 {
+    width: 26px;
+    height: 27px;
+    background-position: -251px -238px;
+}
+.sprite.description-score-6 {
+    width: 26px;
+    height: 27px;
+    background-position: -279px -238px;
+}
+.sprite.description-score-7 {
+    width: 26px;
+    height: 27px;
+    background-position: -308px -238px;
+}
+.sprite.description-score-8 {
+    width: 26px;
+    height: 27px;
+    background-position: -336px -238px;
+}
+.sprite.description-score-10 {
+    width: 26px;
+    height: 27px;
+    background-position: -251px -265px;
+}
+.sprite.description-score-dynamic {
+    width: 26px;
+    height: 27px;
+    background-position: -279px -267px;
+}
+
+
