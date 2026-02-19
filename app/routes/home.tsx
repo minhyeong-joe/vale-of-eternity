@@ -1,13 +1,12 @@
 import type { Route } from "./+types/home";
-import { Welcome } from "../welcome/welcome";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "New React Router App" },
-    { name: "description", content: "Welcome to React Router!" },
+    { title: "Vale of Eternity" },
+    { name: "description", content: "Vale of Eternity Board Game" },
   ];
 }
 
 export default function Home() {
-  return <Welcome />;
+  return <h1>Welcome to Vale of Eternity</h1>;
 }
