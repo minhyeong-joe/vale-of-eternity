@@ -6,11 +6,12 @@ import type { Route } from "./+types/signIn";
 import { useNavigate } from "react-router";
 
 import { SignUp } from "../components/signUp";
+import { useUser } from "../contexts/UserContext";
 import "./signIn.css";
 
 const signInSchema = z.object({
-    username: z.string(),
-    password: z.string(),
+    username: z.string().min(1, "Username is required"),
+    password: z.string().min(1, "Password is required"),
 });
 
 type SignInFormData = z.infer<typeof signInSchema>;
@@ -25,15 +26,16 @@ export function meta({ }: Route.MetaArgs) {
 export default function AuthPage() {
     const [isSignUp, setIsSignUp] = useState(false);
     const navigate = useNavigate();
+    const { login } = useUser();
 
     const signInForm = useForm<SignInFormData>({
         resolver: zodResolver(signInSchema),
     });
 
     const onSignInSubmit = (data: SignInFormData) => {
-        console.log("Sign in:", data);
-        // TODO: Handle sign in
-        navigate("/home");
+        // Allow any username/password
+        login(data.username);
+        navigate("/lobby");
     };
 
     const onSignUpSubmit = (data: any) => {
@@ -45,7 +47,7 @@ export default function AuthPage() {
     const handleGoogleAuth = () => {
         console.log(isSignUp ? "Google sign up" : "Google sign in");
         // TODO: Handle Google SSO
-        navigate("/home");
+        navigate("/lobby");
     };
 
     return (

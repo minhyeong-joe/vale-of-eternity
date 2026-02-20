@@ -33,7 +33,7 @@
     height: 85px;
     background-position: 0px -295px;
 }
-.sprite.air-cards-header {
+.sprite.wind-cards-header {
     width: 250px;
     height: 85px;
     background-position: -382px -85px;
@@ -108,5 +108,90 @@
     height: 27px;
     background-position: -279px -267px;
 }
-
-
+.sprite.description-stone-1 {
+    width: 26px;
+    height: 27px;
+    background-position: -308px -266px;
+}
+.sprite.description-stone-3 {
+    width: 26px;
+    height: 27px;
+    background-position: -336px -266px;
+}
+.sprite.description-stone-6 {
+    width: 26px;
+    height: 27px;
+    background-position: -251px -293px;
+}
+.sprite.description-instant {
+    width: 26px;
+    height: 27px;
+    background-position: -590px -170px;
+}
+.sprite.description-permanent {
+    width: 26px;
+    height: 27px;
+    background-position: -590px -198px;
+}
+.sprite.description-resolution {
+    width: 26px;
+    height: 27px;
+    background-position: -690px -516px;
+}
+.sprite.description-water {
+    width: 26px;
+    height: 27px;
+    background-position: -590px -226px;
+}
+.sprite.description-wind {
+    width: 26px;
+    height: 27px;
+    background-position: -590px -272px;
+}
+.sprite.description-earth {
+    width: 26px;
+    height: 27px;
+    background-position: -662px -544px;
+}
+.sprite.description-fire {
+    width: 26px;
+    height: 27px;
+    background-position: -690px -544px;
+}
+.sprite.description-dragon {
+    width: 26px;
+    height: 27px;
+    background-position: -634px -544px;
+}
+.sprite.player-purple {
+    width: 90px;
+    height: 90px;
+    background-position: -214px -588px;
+    background-color: #441334;
+    border-radius: 100%;
+    box-shadow: 0 0 5px rgba(68, 19, 52, 0.5);
+}
+.sprite.player-green {
+    width: 90px;
+    height: 90px;
+    background-position: -111px -588px;
+    background-color: #163b39;
+    border-radius: 100%;
+    box-shadow: 0 0 5px rgba(22, 59, 57, 0.5);
+}
+.sprite.player-black {
+    width: 90px;
+    height: 90px;
+    background-position: -418px -385px;
+    background-color: #080404;
+    border-radius: 100%;
+    box-shadow: 0 0 5px rgba(8, 4, 4, 0.5);
+}
+.sprite.player-gray {
+    width: 90px;
+    height: 90px;
+    background-position: -315px -588px;
+    background-color: #898989;
+    border-radius: 100%;
+    box-shadow: 0 0 5px rgba(137, 137, 137, 0.5);
+}
