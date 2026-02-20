@@ -1,12 +1,14 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 
+import { signIn } from "../apis/userAPI";
+
 interface User {
     username: string;
 }
 
 interface UserContextType {
     user: User | null;
-    login: (username: string) => void;
+    login: (username: string, password: string) => Promise<void>;
     logout: () => void;
 }
 
@@ -15,8 +17,10 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 export function UserProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
 
-    const login = (username: string) => {
-        setUser({ username });
+    const login = async (username: string, password: string) => {
+        const data = await signIn(username, password);
+        console.log("Login successful:", data);
+        setUser({ username: data.username });
     };
 
     const logout = () => {

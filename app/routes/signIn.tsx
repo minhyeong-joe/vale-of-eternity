@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { Route } from "./+types/signIn";
 import { useNavigate } from "react-router";
 
+import { signUp } from "../apis/userAPI";
 import { SignUp } from "../components/signUp";
 import { useUser } from "../contexts/UserContext";
 import "./signIn.css";
@@ -25,6 +26,7 @@ export function meta({ }: Route.MetaArgs) {
 
 export default function AuthPage() {
     const [isSignUp, setIsSignUp] = useState(false);
+    const [authError, setAuthError] = useState<string | null>(null);
     const navigate = useNavigate();
     const { login } = useUser();
 
@@ -32,15 +34,18 @@ export default function AuthPage() {
         resolver: zodResolver(signInSchema),
     });
 
-    const onSignInSubmit = (data: SignInFormData) => {
-        // Allow any username/password
-        login(data.username);
-        navigate("/lobby");
+    const onSignInSubmit = async (data: SignInFormData) => {
+        try {
+            await login(data.username, data.password);
+            navigate("/lobby");
+        } catch (err: any) {
+            const errorMsg = err?.response?.data?.message ?? err?.message ?? 'Sign in failed. Please try again.';
+            setAuthError(errorMsg);
+        }
     };
 
-    const onSignUpSubmit = (data: any) => {
-        console.log("Sign up:", data);
-        // TODO: Handle sign up
+    const onSignUpSubmit = async (data: any) => {
+        await signUp(data.username, data.password, data.email);
         setIsSignUp(false);
     };
 
@@ -114,6 +119,10 @@ export default function AuthPage() {
                             >
                                 Sign In
                             </button>
+
+                            {authError && (
+                                <p className="text-red-400 text-sm text-center mt-2">{authError}</p>
+                            )}
 
                             <div className="text-center mt-4">
                                 <p className="text-slate-300">

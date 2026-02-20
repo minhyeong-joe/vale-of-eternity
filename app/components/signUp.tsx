@@ -4,7 +4,7 @@ import { z } from "zod";
 
 const signUpSchema = z.object({
     email: z.string().email("Invalid email address"),
-    username: z.string().min(6, "Username must be at least 6 characters"),
+    username: z.string().min(4, "Username must be at least 4 characters"),
     password: z.string()
         .min(8, "Password must be at least 8 characters")
         .regex(/[A-Z]/, "Password must include at least one uppercase letter")
@@ -19,7 +19,7 @@ const signUpSchema = z.object({
 type SignUpFormData = z.infer<typeof signUpSchema>;
 
 interface SignUpProps {
-    onSubmit: (data: SignUpFormData) => void;
+    onSubmit: (data: SignUpFormData) => Promise<void>;
     onSwitchToSignIn: () => void;
 }
 
@@ -27,13 +27,23 @@ export function SignUp({ onSubmit, onSwitchToSignIn }: SignUpProps) {
     const {
         register,
         handleSubmit,
-        formState: { errors },
+        setError,
+        formState: { errors, isSubmitting },
     } = useForm<SignUpFormData>({
         resolver: zodResolver(signUpSchema),
     });
 
+    const handleFormSubmit = async (data: SignUpFormData) => {
+        try {
+            await onSubmit(data);
+        } catch (err: any) {
+            const errorMsg = err?.response?.data?.message ?? err?.message ?? 'Sign up failed. Please try again.';
+            setError('root', { message: errorMsg });
+        }
+    };
+
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
             {/* Email */}
             <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -101,11 +111,15 @@ export function SignUp({ onSubmit, onSwitchToSignIn }: SignUpProps) {
             </div>
 
             {/* Sign Up Button */}
+            {errors.root && (
+                <p className="text-red-400 text-sm text-center">{errors.root.message}</p>
+            )}
             <button
                 type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 cursor-pointer"
+                disabled={isSubmitting}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 cursor-pointer disabled:cursor-not-allowed"
             >
-                Sign Up
+                {isSubmitting ? 'Signing up...' : 'Sign Up'}
             </button>
 
             {/* Toggle Link */}
