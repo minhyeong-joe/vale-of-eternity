@@ -74,7 +74,7 @@ function TooltipPanel({ card, left, top }: TooltipPanelProps) {
                 <div className="border-t border-slate-700/80 mb-2" />
 
                 {/* Description with inline sprites matching card text exactly */}
-                <div className="flex flex-wrap items-center gap-x-0.5 gap-y-1 leading-snug">
+                <div className="leading-snug">
                     {card.description.map((token, i) =>
                         typeof token === 'string' ? (
                             <span key={i} className="text-slate-300" style={{ fontSize: 10 }}>
