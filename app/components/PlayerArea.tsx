@@ -75,9 +75,9 @@ function CompactPlayerArea({ player, isActive }: { player: Player; isActive: boo
             <StoneRow stones={player.stones} size="sm" />
 
             {/* Cards row */}
-            <div className="flex items-start gap-3">
-                {/* Summoned */}
-                <div className="flex flex-col gap-1 min-w-0">
+            <div className="flex items-start gap-2 min-w-0">
+                {/* Summoned — flex-1 so it fills the available space */}
+                <div className="flex flex-col gap-1 flex-1 min-w-0">
                     <span className="text-slate-500 text-[9px] uppercase tracking-wide">
                         Summoned ({player.summonedCards.length})
                     </span>
@@ -86,12 +86,12 @@ function CompactPlayerArea({ player, isActive }: { player: Player; isActive: boo
                         faceDown={false}
                         label={`${player.username}'s Summoned Cards`}
                         emptyText="none"
-                        maxVisible={3}
+                        stretch={true}
                     />
                 </div>
 
                 {/* Hand (hidden) */}
-                <div className="flex flex-col gap-1 min-w-0">
+                <div className="flex flex-col gap-1 flex-shrink-0">
                     <span className="text-slate-500 text-[9px] uppercase tracking-wide">
                         Hand ({player.handCount})
                     </span>
@@ -144,11 +144,11 @@ function FullPlayerArea({ player, isMyTurn }: { player: Player; isMyTurn: boolea
                 </div>
             </div>
 
-            {/* Cards area */}
-            <div className="flex gap-4 flex-wrap">
+            {/* Cards area — both sections fill width evenly */}
+            <div className="flex gap-4">
 
                 {/* Summoned */}
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-1.5 flex-1 min-w-0">
                     <span className="text-slate-400 text-xs font-medium">
                         Summoned ({player.summonedCards.length})
                     </span>
@@ -159,7 +159,7 @@ function FullPlayerArea({ player, isMyTurn }: { player: Player; isMyTurn: boolea
                             cards={player.summonedCards}
                             faceDown={false}
                             label="Your Summoned Cards"
-                            maxVisible={8}
+                            stretch={true}
                         />
                     )}
                 </div>
@@ -179,7 +179,7 @@ function FullPlayerArea({ player, isMyTurn }: { player: Player; isMyTurn: boolea
                             cards={player.hand}
                             faceDown={false}
                             label="Your Hand"
-                            maxVisible={10}
+                            stretch={true}
                         />
                     )}
                 </div>

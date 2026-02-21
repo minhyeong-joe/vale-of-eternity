@@ -1,5 +1,5 @@
 .sprite {
-    background: url('assets/css_sprites.webp') no-repeat;
+    background: url('/assets/css_sprites.webp') no-repeat;
     flex-shrink: 0;
 }
 

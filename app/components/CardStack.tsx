@@ -1,14 +1,14 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import type { Card, Family } from '../types/game';
 
 // ─── Family accent colors (used for tooltip border) ────────────────────────
 
 const ACCENT: Record<Family, string> = {
-    fire:   '#f87171',
-    water:  '#60a5fa',
-    earth:  '#4ade80',
-    wind:   '#e879f9',
+    fire: '#f87171',
+    water: '#60a5fa',
+    earth: '#4ade80',
+    wind: '#e879f9',
     dragon: '#818cf8',
 };
 
@@ -175,24 +175,21 @@ function ModalCard({ card, faceDown }: { card: Card; faceDown: boolean }) {
 
 const CARD_W = 64;
 const CARD_H = 95;
-const STACK_OFFSET = 18;
+const STACK_OFFSET = 18;      // offset for non-stretch compact stacks (always overlapping)
+const CARD_GAP = 6;           // gap between cards when fully spread (no overlap)
+const MIN_OFFSET = 5;         // minimum sliver per card when compressed hard
 const BACK_CARD_W = 58;
 const BACK_CARD_H = 95;
-const BACK_STACK_OFFSET = 10;
+const BACK_STACK_OFFSET = 10; // back cards always tight — no dynamic needed
 
 interface CardStackProps {
     cards: Card[];
     faceDown?: boolean;
-    /** Title shown in the expand modal */
     label: string;
     emptyText?: string;
-    /** Max cards shown fanned in the compact stack */
     maxVisible?: number;
-    /**
-     * When true: clicking does NOT open the expand modal.
-     * Use this for opponent hands — show stacked backs + count only.
-     */
     noExpand?: boolean;
+    stretch?: boolean;
     className?: string;
 }
 
@@ -203,9 +200,25 @@ export function CardStack({
     emptyText = '—',
     maxVisible = 4,
     noExpand = false,
+    stretch = false,
     className = '',
 }: CardStackProps) {
     const [expanded, setExpanded] = useState(false);
+
+    // Outer probe div measures the available container width in stretch mode.
+    // The actual stack is sized to min(naturalWidth, probeWidth) inside it.
+    const probeRef = useRef<HTMLDivElement>(null);
+    const [measuredWidth, setMeasuredWidth] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (!stretch || faceDown || typeof ResizeObserver === 'undefined') return;
+        const el = probeRef.current;
+        if (!el) return;
+        const ro = new ResizeObserver(([entry]) => setMeasuredWidth(entry.contentRect.width));
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, [stretch, faceDown]);
+
     const canExpand = !noExpand && cards.length > 0;
 
     if (cards.length === 0) {
@@ -219,48 +232,100 @@ export function CardStack({
         );
     }
 
-    const visible = cards.slice(0, Math.min(cards.length, maxVisible));
-    const containerW = (faceDown ? BACK_CARD_W : CARD_W) + (faceDown ? BACK_STACK_OFFSET : STACK_OFFSET) * (visible.length - 1);
+    const cardW = faceDown ? BACK_CARD_W : CARD_W;
+    const cardH = faceDown ? BACK_CARD_H : CARD_H;
+
+    // In stretch mode, show every card (let the dynamic offset determine density).
+    // In fixed mode, cap to maxVisible.
+    const visible = (stretch && !faceDown) ? cards : cards.slice(0, Math.min(cards.length, maxVisible));
+
+    // ─── Layout: offset per card + final stack pixel width ────────────────
+    //  • Back cards           → tight fixed offset, no dynamic
+    //  • Face-up, no stretch  → fixed STACK_OFFSET (always overlapping)
+    //  • Face-up, stretch     → side-by-side (CARD_W + CARD_GAP) when there's room;
+    //                           overlap only when naturalSpreadW > measuredWidth
+    let effectiveOffset: number;
+    let stackWidth: number;
+
+    if (faceDown || visible.length <= 1) {
+        effectiveOffset = faceDown ? BACK_STACK_OFFSET : STACK_OFFSET;
+        stackWidth = cardW + effectiveOffset * Math.max(0, visible.length - 1);
+    } else if (stretch && !faceDown && measuredWidth !== null && measuredWidth > 0) {
+        const spreadOffset = CARD_W + CARD_GAP;                          // no overlap
+        const spreadW = CARD_W + spreadOffset * (visible.length - 1);
+        if (spreadW <= measuredWidth) {
+            // Enough room — cards side by side, no overlap
+            effectiveOffset = spreadOffset;
+            stackWidth = spreadW;
+        } else {
+            // Not enough room — start overlapping to fit within measuredWidth
+            effectiveOffset = Math.max(MIN_OFFSET, (measuredWidth - CARD_W) / (visible.length - 1));
+            stackWidth = measuredWidth;
+        }
+    } else {
+        // stretch but not yet measured, or non-stretch: use fixed stack offset
+        effectiveOffset = STACK_OFFSET;
+        stackWidth = CARD_W + STACK_OFFSET * Math.max(0, visible.length - 1);
+    }
+
+    // ─── Shared inner content ──────────────────────────────────────────────
+    const innerStack = (
+        <div
+            className={`relative flex-shrink-0 ${canExpand ? 'cursor-pointer group' : ''}`}
+            style={{ width: stackWidth, height: cardH }}
+            onClick={canExpand ? () => setExpanded(true) : undefined}
+        >
+            {visible.map((card, i) => (
+                <div
+                    key={card.id}
+                    className="absolute"
+                    style={{ left: i * effectiveOffset, zIndex: i + 1 }}
+                >
+                    {faceDown
+                        ? <CardBack width={cardW} height={cardH} />
+                        : <CardImage card={card} width={CARD_W} height={CARD_H} />
+                    }
+                </div>
+            ))}
+
+            {/* Count badge — top-right of the rightmost card */}
+            <div
+                className="absolute bg-slate-800 border border-slate-500 text-white font-bold rounded-full flex items-center justify-center"
+                style={{
+                    top: -7, right: -9,
+                    zIndex: visible.length + 2,
+                    minWidth: 18, height: 18,
+                    fontSize: 9, paddingInline: 3,
+                }}
+            >
+                {cards.length}
+            </div>
+
+            {/* Click-to-expand hover tint */}
+            {canExpand && (
+                <div
+                    className="absolute inset-0 bg-black/0 group-hover:bg-black/20 rounded transition-colors duration-150 pointer-events-none"
+                    style={{ zIndex: visible.length + 1 }}
+                />
+            )}
+        </div>
+    );
 
     return (
         <>
-            {/* ── Compact stack view ── */}
-            <div
-                className={`relative flex-shrink-0 ${canExpand ? 'cursor-pointer group' : ''} ${className}`}
-                style={{ width: containerW, height: faceDown ? BACK_CARD_H : CARD_H }}
-                onClick={canExpand ? () => setExpanded(true) : undefined}
-            >
-                {visible.map((card, i) => (
-                    <div
-                        key={card.id}
-                        className="absolute"
-                        style={{ left: i * (faceDown ? BACK_STACK_OFFSET : STACK_OFFSET), zIndex: i + 1 }}
-                    >
-                        {faceDown
-                            ? <CardBack width={BACK_CARD_W} height={BACK_CARD_H} />
-                            : <CardImage card={card} width={CARD_W} height={CARD_H} />
-                        }
-                    </div>
-                ))}
-
-                {/* Count badge */}
-                <div
-                    className="absolute bg-slate-800 border border-slate-500 text-white font-bold rounded-full flex items-center justify-center"
-                    style={{
-                        top: -7, right: -9,
-                        zIndex: visible.length + 2,
-                        minWidth: 18, height: 18,
-                        fontSize: 9, paddingInline: 3,
-                    }}
-                >
-                    {cards.length}
+            {/* ── Compact stack view ──
+                In stretch mode: a w-full probe div measures the available space;
+                the actual stack inside is sized to min(naturalWidth, probeWidth).
+                In fixed mode: the stack div is its own flex-shrink-0 block. */}
+            {stretch && !faceDown ? (
+                <div ref={probeRef} className={`w-full ${className}`}>
+                    {innerStack}
                 </div>
-
-                {/* Click-to-expand hover tint */}
-                {canExpand && (
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 rounded transition-colors duration-150 pointer-events-none" style={{ zIndex: visible.length + 1 }} />
-                )}
-            </div>
+            ) : (
+                <div className={`flex-shrink-0 ${className}`}>
+                    {innerStack}
+                </div>
+            )}
 
             {/* ── Expand modal ── */}
             {expanded && (

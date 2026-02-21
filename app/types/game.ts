@@ -2,6 +2,7 @@ export type Family = 'fire' | 'water' | 'earth' | 'wind' | 'dragon';
 export type EffectType = 'instant' | 'permanent' | 'resolution';
 export type Phase = 'hunting' | 'action' | 'resolution';
 export type PlayerColor = 'purple' | 'green' | 'black' | 'gray';
+export type GameStatus = 'waiting' | 'in-progress' | 'finished';
 
 /**
  * A description token is either a plain string or a reference to a sprite

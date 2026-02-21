@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import type { Phase, Player } from '../types/game';
+import type { Phase, Player, GameStatus } from '../types/game';
 import type { GamePace } from './CreateRoomModal';
 import { RoomSettingsModal } from './RoomSettingsModal';
 import type { RoomSettingsFormData } from './RoomSettingsModal';
@@ -22,12 +22,14 @@ const PACE_CFG: Record<GamePace, { label: string; icon: string }> = {
 // ─── Props ─────────────────────────────────────────────────────────────────
 
 interface GameHeaderProps {
+    status: GameStatus;
     round: number;
     phase: Phase;
     players: Player[];
     activePlayerId: number;
     myPlayerId: number;
     onLeave: () => void;
+    onStartGame?: () => void;
     /** Room metadata for the info chip + settings */
     roomName?: string;
     roomHost?: string;
@@ -45,12 +47,14 @@ interface GameHeaderProps {
 // ─── Component ─────────────────────────────────────────────────────────────
 
 export function GameHeader({
+    status,
     round,
     phase,
     players,
     activePlayerId,
     myPlayerId,
     onLeave,
+    onStartGame,
     roomName,
     roomHost,
     pace,
@@ -103,58 +107,79 @@ export function GameHeader({
                 {/* Separator */}
                 {roomName && <div className="w-px h-4 bg-slate-700 flex-shrink-0" />}
 
-                {/* Game info cluster */}
+                {/* Game info cluster — changes based on game status */}
                 <div className="flex items-center gap-3 flex-wrap flex-1 min-w-0 justify-center">
 
-                    {/* Round */}
-                    <div className="flex items-center gap-1.5 text-sm text-slate-300">
-                        <i className="fa-regular fa-circle-dot text-slate-500 text-xs" />
-                        Round <strong className="text-white">{round}</strong>/10
-                    </div>
+                    {(status === 'waiting' || status === 'finished') ? (
+                        /* ── Waiting / finished: start button (host) or waiting label ── */
+                        isHost ? (
+                            <button
+                                onClick={onStartGame}
+                                className="flex items-center gap-2 px-5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 border border-emerald-500/70 text-white font-bold text-sm transition-colors cursor-pointer"
+                            >
+                                <i className="fa-solid fa-play text-[11px]" />
+                                {status === 'finished' ? 'New Game' : 'Start Game'}
+                            </button>
+                        ) : (
+                            <span className="text-slate-400 text-sm animate-pulse">
+                                <i className="fa-regular fa-clock mr-1.5 text-xs" />
+                                Waiting for host to start…
+                            </span>
+                        )
+                    ) : (
+                        /* ── In-progress: round / phase / turn / dots ── */
+                        <>
+                            {/* Round */}
+                            <div className="flex items-center gap-1.5 text-sm text-slate-300">
+                                <i className="fa-regular fa-circle-dot text-slate-500 text-xs" />
+                                Round <strong className="text-white">{round}</strong>/10
+                            </div>
 
-                    {/* Phase badge */}
-                    <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full border ${phaseConf.colorClass}`}>
-                        <i className={`${phaseConf.icon} text-[10px]`} />
-                        {phaseConf.label} Phase
-                    </span>
+                            {/* Phase badge */}
+                            <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full border ${phaseConf.colorClass}`}>
+                                <i className={`${phaseConf.icon} text-[10px]`} />
+                                {phaseConf.label} Phase
+                            </span>
 
-                    {/* Turn indicator */}
-                    {activePlayer && (
-                        <div className="flex items-center gap-1.5">
-                            {isMyTurn ? (
-                                <span className="text-emerald-300 text-xs font-bold animate-pulse">
-                                    <i className="fa-solid fa-bolt mr-1 text-[10px]" />
-                                    Your Turn!
-                                </span>
-                            ) : (
-                                <span className="text-slate-400 text-xs">
-                                    {activePlayer.username}'s turn
-                                </span>
+                            {/* Turn indicator */}
+                            {activePlayer && (
+                                <div className="flex items-center gap-1.5">
+                                    {isMyTurn ? (
+                                        <span className="text-emerald-300 text-xs font-bold animate-pulse">
+                                            <i className="fa-solid fa-bolt mr-1 text-[10px]" />
+                                            Your Turn!
+                                        </span>
+                                    ) : (
+                                        <span className="text-slate-400 text-xs">
+                                            {activePlayer.username}'s turn
+                                        </span>
+                                    )}
+                                </div>
                             )}
-                        </div>
-                    )}
 
-                    {/* Turn order dots */}
-                    <div className="hidden sm:flex items-center gap-1">
-                        {players.map(p => (
-                            <div
-                                key={p.id}
-                                title={p.username}
-                                className={`w-2 h-2 rounded-full transition-all ${
-                                    p.id === activePlayerId ? 'scale-125 ring-1 ring-white/40' : 'opacity-40'
-                                } ${
-                                    p.color === 'purple' ? 'bg-purple-500' :
-                                    p.color === 'green'  ? 'bg-teal-500' :
-                                    p.color === 'black'  ? 'bg-slate-500' : 'bg-gray-300'
-                                }`}
-                            />
-                        ))}
-                    </div>
+                            {/* Turn order dots */}
+                            <div className="hidden sm:flex items-center gap-1">
+                                {players.map(p => (
+                                    <div
+                                        key={p.id}
+                                        title={p.username}
+                                        className={`w-2 h-2 rounded-full transition-all ${
+                                            p.id === activePlayerId ? 'scale-125 ring-1 ring-white/40' : 'opacity-40'
+                                        } ${
+                                            p.color === 'purple' ? 'bg-purple-500' :
+                                            p.color === 'green'  ? 'bg-teal-500' :
+                                            p.color === 'black'  ? 'bg-slate-500' : 'bg-gray-300'
+                                        }`}
+                                    />
+                                ))}
+                            </div>
+                        </>
+                    )}
                 </div>
 
-                {/* Right side: Settings (host only) + Leave */}
+                {/* Right side: Settings (host only, waiting only) + Leave */}
                 <div className="flex items-center gap-2 flex-shrink-0">
-                    {isHost && roomSettings && onSaveSettings && (
+                    {isHost && status === 'waiting' && roomSettings && onSaveSettings && (
                         <button
                             onClick={() => setShowSettings(true)}
                             className="flex items-center gap-1.5 text-slate-400 hover:text-white text-sm transition-colors cursor-pointer whitespace-nowrap"

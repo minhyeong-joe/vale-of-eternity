@@ -1,13 +1,24 @@
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router';
 import type { Route } from './+types/gameRoom';
 import { useUser } from '../contexts/UserContext';
+import { socket } from '../sockets/connection';
+import { RoomEvents, type RoomDetail, type RoomJoinedPayload, type RoomLeftPayload, type RoomUpdatePayload, type RoomUpdatedPayload } from '../sockets/contract';
 import { GameHeader } from '../components/GameHeader';
 import { GameBoard } from '../components/GameBoard';
 import { PlayerArea } from '../components/PlayerArea';
-import type { Card, GameState } from '../types/game';
-import type { GamePace } from '../components/CreateRoomModal';
+import type { GameState, GameStatus, Player, PlayerColor } from '../types/game';
+import type { RoomSettingsFormData } from '../components/RoomSettingsModal';
 import './gameRoom.css';
+
+const PLAYER_COLORS: PlayerColor[] = ['purple', 'green', 'black', 'gray'];
+
+const COLOR_DOT: Record<PlayerColor, string> = {
+    purple: 'bg-purple-500',
+    green:  'bg-emerald-500',
+    black:  'bg-slate-400',
+    gray:   'bg-gray-400',
+};
 
 export function meta({}: Route.MetaArgs) {
     return [
@@ -16,193 +27,127 @@ export function meta({}: Route.MetaArgs) {
     ];
 }
 
-// ─── Mock card data ───────────────────────────────────────────────────────
-
-const C: Record<number, Card> = {
-    1: {
-        id: 1, name: 'Salamander', family: 'fire', cost: 1, score: 1, effectType: 'instant',
-        imagePath: '/assets/cards/fire/Salamander.webp',
-        description: ['Earn ', { sprite: 'description-stone-1' }, ' and ', { sprite: 'description-stone-1' }, '.'],
-    },
-    2: {
-        id: 2, name: 'Burning Skull', family: 'fire', cost: 3, score: 3, effectType: 'instant',
-        imagePath: '/assets/cards/fire/Burningskull.webp',
-        description: ['Discard a card from your hand, then earn ', { sprite: 'description-stone-3' }, '.'],
-    },
-    3: {
-        id: 3, name: 'Ifrit', family: 'fire', cost: 2, score: 'dynamic', effectType: 'instant',
-        imagePath: '/assets/cards/fire/Ifrit.webp',
-        description: ['Earn ', { sprite: 'description-stone-1' }, ' for each ', { sprite: 'description-fire' }, ' summoned.'],
-    },
-    4: {
-        id: 4, name: 'Hydra', family: 'water', cost: 4, score: 4, effectType: 'instant',
-        imagePath: '/assets/cards/water/Hydra.png',
-        description: ['Choose 2: draw a card / earn ', { sprite: 'description-stone-3' }, ' and ', { sprite: 'description-stone-3' }, '.'],
-    },
-    5: {
-        id: 5, name: 'Leviathan', family: 'water', cost: 6, score: 6, effectType: 'permanent',
-        imagePath: '/assets/cards/water/Leviathan.png',
-        description: ['Pay 1 less when summoning ', { sprite: 'description-water' }, ' cards.'],
-    },
-    6: {
-        id: 6, name: 'Mud Slime', family: 'earth', cost: 4, score: 4, effectType: 'permanent',
-        imagePath: '/assets/cards/earth/Mudslime.png',
-        description: ['Earn 1 extra stone when selling an ', { sprite: 'description-earth' }, ' card.'],
-    },
-    7: {
-        id: 7, name: 'Troll', family: 'earth', cost: 3, score: 3, effectType: 'permanent',
-        imagePath: '/assets/cards/earth/Troll.png',
-        description: ['Your summoning cost is reduced by 1.'],
-    },
-    8: {
-        id: 8, name: 'Medusa', family: 'earth', cost: 5, score: 5, effectType: 'resolution',
-        imagePath: '/assets/cards/earth/Medusa.png',
-        description: ['Discard a card from your hand, then earn ', { sprite: 'description-stone-6' }, '.'],
-    },
-    9: {
-        id: 9, name: 'Cerberus', family: 'earth', cost: 5, score: 5, effectType: 'permanent',
-        imagePath: '/assets/cards/earth/Cerberus.png',
-        description: ['Discard up to 3 of your summoned cards.'],
-    },
-    10: {
-        id: 10, name: 'Griffon', family: 'wind', cost: 7, score: 7, effectType: 'resolution',
-        imagePath: '/assets/cards/wind/Griffon.png',
-        description: ['Draw a card.'],
-    },
-    11: {
-        id: 11, name: 'Dragon Egg', family: 'dragon', cost: 3, score: 3, effectType: 'instant',
-        imagePath: '/assets/cards/dragon/Dragonegg.webp',
-        description: ['Draw 1 card and immediately summon it.'],
-    },
-    12: {
-        id: 12, name: 'Eternity', family: 'dragon', cost: 8, score: 'dynamic', effectType: 'instant',
-        imagePath: '/assets/cards/dragon/Eternity.png',
-        description: ['Earn ', { sprite: 'description-score-4' }, ' pts for each different family in your area.'],
-    },
-    13: {
-        id: 13, name: 'Kappa', family: 'water', cost: 3, score: 3, effectType: 'permanent',
-        imagePath: '/assets/cards/water/Kappa.png',
-        description: ['Whenever you summon a card using ', { sprite: 'description-stone-3' }, ', earn ', { sprite: 'description-score-2' }, ' pts.'],
-    },
-    14: {
-        id: 14, name: 'Willow', family: 'dragon', cost: 2, score: 2, effectType: 'instant',
-        imagePath: '/assets/cards/dragon/Willow.png',
-        description: ['Draw 2 cards.'],
-    },
-    15: {
-        id: 15, name: 'Ember', family: 'dragon', cost: 4, score: 7, effectType: 'instant',
-        imagePath: '/assets/cards/dragon/Ember.png',
-        description: ['Earn ', { sprite: 'description-score-7' }, ' pts. A player of your choice discards a summoned ', { sprite: 'description-water' }, ' card.'],
-    },
-};
-
-// ─── Mock game state ──────────────────────────────────────────────────────
-
-const MOCK_GAME: GameState = {
-    round: 3,
-    phase: 'hunting',
-    activePlayerId: 4,
-    myPlayerId: 1,
-    players: [
-        {
-            id: 1,
-            username: '',           // overridden at render time
-            color: 'purple',
-            score: 12,
-            stones: { red: 2, blue: 1, purple: 0 },
-            summonedCards: [C[1], C[4]],
-            hand: [C[2], C[6], C[11]],
-            handCount: 3,
-            isFirstPlayer: false,
-            isCurrentTurn: false,
-        },
-        {
-            id: 2,
-            username: 'Aelindra',
-            color: 'green',
-            score: 8,
-            stones: { red: 3, blue: 0, purple: 0 },
-            summonedCards: [C[3]],
-            hand: [],
-            handCount: 4,
-            isFirstPlayer: true,
-            isCurrentTurn: false,
-        },
-        {
-            id: 3,
-            username: 'Thorin',
-            color: 'black',
-            score: 15,
-            stones: { red: 1, blue: 1, purple: 0 },
-            summonedCards: [C[9], C[8]],
-            hand: [],
-            handCount: 2,
-            isFirstPlayer: false,
-            isCurrentTurn: true,
-        },
-        {
-            id: 4,
-            username: 'Seraph',
-            color: 'gray',
-            score: 6,
-            stones: { red: 0, blue: 1, purple: 1 },
-            summonedCards: [],
-            hand: [],
-            handCount: 6,
-            isFirstPlayer: false,
-            isCurrentTurn: false,
-        },
-    ],
-    boardZones: [
-        { family: 'fire',   cards: [C[1], C[2]] },
-        { family: 'water',  cards: [C[13], C[4]] },
-        { family: 'earth',  cards: [C[7]] },
-        { family: 'wind',   cards: [] },
-        { family: 'dragon', cards: [C[12], C[15]] },
-    ],
-    drawPileCount: 45,
-    discardPileCount: 8,
-};
-
-// ─── Score board strip ─────────────────────────────────────────────────────
-
-const COLOR_DOT: Record<string, string> = {
-    purple: 'bg-purple-500',
-    green:  'bg-emerald-500',
-    black:  'bg-slate-400',
-    gray:   'bg-gray-400',
-};
-
-// ─── Mock room metadata ────────────────────────────────────────────────────
-
-const MOCK_ROOM = {
-    name:       "Adventurers' Den",
-    hostId:     1,          // player 1 (the current user) is the host
-    pace:       'chill' as GamePace,
-    isPrivate:  false,
-    maxPlayers: 4,
-};
-
-// ─── Route component ──────────────────────────────────────────────────────
-
 export default function GameRoom() {
+    const location = useLocation();
+    const [roomInfo, setRoomInfo] = useState<RoomDetail | null>(
+        (location.state as { roomDetail?: RoomDetail } | null)?.roomDetail ?? null
+    );
     const navigate = useNavigate();
     const { user } = useUser();
+
+    // Game lifecycle state — toggled locally until socket events are wired up server-side
+    const [gameStatus, setGameStatus] = useState<GameStatus>(
+        () => (roomInfo?.status as GameStatus | undefined) ?? 'waiting'
+    );
+    // 0 = no active player (waiting/finished); set to first player's id when game starts
+    const [activePlayerId, setActivePlayerId] = useState(0);
 
     useEffect(() => {
         if (!user) navigate('/');
     }, [user, navigate]);
 
+    useEffect(() => {
+        if (!user) return;
+
+        const onJoined = (payload: RoomJoinedPayload) => {
+            setRoomInfo(payload.roomDetail);
+            if (payload.roomDetail.status !== 'waiting') {
+                setGameStatus(payload.roomDetail.status as GameStatus);
+            }
+        };
+
+        const onLeft = (payload: RoomLeftPayload) => {
+            if (payload.roomDetail) {
+                setRoomInfo(payload.roomDetail);
+            }
+        };
+
+        const onUpdated = (payload: RoomUpdatedPayload) => {
+            setRoomInfo(payload.roomDetail);
+        };
+
+        socket.on(RoomEvents.JOINED, onJoined);
+        socket.on(RoomEvents.LEFT, onLeft);
+        socket.on(RoomEvents.UPDATED, onUpdated);
+
+        return () => {
+            socket.off(RoomEvents.JOINED, onJoined);
+            socket.off(RoomEvents.LEFT, onLeft);
+            socket.off(RoomEvents.UPDATED, onUpdated);
+        };
+    }, [user]);
+
+    useEffect(() => {
+        if (!user) return;
+        console.log("roomInfo changed:", roomInfo);
+    }, [roomInfo]);
+
     if (!user) return null;
 
-    const game = MOCK_GAME;
+    const roomPlayers: Player[] = (roomInfo?.players ?? []).map((p, i) => ({
+        id: i + 1,
+        username: p.username,
+        color: PLAYER_COLORS[i % PLAYER_COLORS.length],
+        score: 0,
+        stones: { red: 0, blue: 0, purple: 0 },
+        summonedCards: [],
+        hand: [],
+        handCount: 0,
+        isFirstPlayer: i === 0,
+        isCurrentTurn: false,
+    }));
+
+    const myPlayerId = (roomInfo?.players.findIndex(p => p.userId === user.userId) ?? -1) + 1;
+
+    const game: GameState = {
+        round: 1,
+        phase: 'hunting',
+        activePlayerId: 1,
+        myPlayerId,
+        players: roomPlayers,
+        boardZones: [
+            { family: 'fire',   cards: [] },
+            { family: 'water',  cards: [] },
+            { family: 'earth',  cards: [] },
+            { family: 'wind',   cards: [] },
+            { family: 'dragon', cards: [] },
+        ],
+        drawPileCount: 0,
+        discardPileCount: 0,
+    };
+
     const myPlayer = { ...game.players.find(p => p.id === game.myPlayerId)!, username: user.username };
     const opponents = game.players.filter(p => p.id !== game.myPlayerId);
     const isMyTurn = game.activePlayerId === game.myPlayerId;
 
-    const isHost = MOCK_ROOM.hostId === game.myPlayerId;
-    const roomHost = game.players.find(p => p.id === MOCK_ROOM.hostId);
-    const roomHostName = MOCK_ROOM.hostId === game.myPlayerId ? user.username : roomHost?.username ?? '';
+    const isHost = roomInfo?.hostUserId === user.userId;
+    const roomHostName = roomInfo
+        ? (roomInfo.hostUserId === user.userId ? user.username : roomInfo.hostUsername)
+        : '';
+
+    const handleRoomLeave = () => {
+        socket.emit(RoomEvents.LEAVE, { roomId: roomInfo?.id });
+        navigate('/lobby');
+    };
+
+    const handleStartGame = () => {
+        setGameStatus('in-progress');
+        // TODO: replace with initial state from socket game:state event
+        setActivePlayerId(roomPlayers[0]?.id ?? 1);
+    };
+
+    const handleUpdateRoom = (data: RoomSettingsFormData) => {
+        if (!roomInfo) return;
+        const payload: RoomUpdatePayload = {
+            roomId: roomInfo.id,
+            name: data.name,
+            pace: data.pace,
+            maxPlayers: data.maxPlayers,
+            password: data.password === '' ? null : data.password,
+            isPrivate: data.password != null && data.password !== '',
+        };
+        socket.emit(RoomEvents.UPDATE, payload);
+    };
 
     return (
         <div className="game-room-container fixed inset-0 overflow-y-auto">
@@ -212,20 +157,22 @@ export default function GameRoom() {
             <div className="relative min-h-screen flex flex-col">
                 {/* ── Header ── */}
                 <GameHeader
+                    status={gameStatus}
                     round={game.round}
                     phase={game.phase}
                     players={game.players}
                     activePlayerId={game.activePlayerId}
                     myPlayerId={game.myPlayerId}
-                    onLeave={() => navigate('/lobby')}
-                    roomName={MOCK_ROOM.name}
+                    onLeave={handleRoomLeave}
+                    onStartGame={handleStartGame}
+                    roomName={roomInfo?.name ?? ''}
                     roomHost={roomHostName}
-                    pace={MOCK_ROOM.pace}
-                    isPrivate={MOCK_ROOM.isPrivate}
+                    pace={roomInfo?.pace ?? 'chill'}
+                    isPrivate={roomInfo?.isPrivate ?? false}
                     isHost={isHost}
-                    roomSettings={{ name: MOCK_ROOM.name, maxPlayers: MOCK_ROOM.maxPlayers, pace: MOCK_ROOM.pace, password: '' }}
-                    currentPlayerCount={game.players.length}
-                    onSaveSettings={(data) => console.log('Room settings saved:', data)}
+                    roomSettings={{ name: roomInfo?.name ?? '', maxPlayers: roomInfo?.maxPlayers ?? 4, pace: roomInfo?.pace ?? 'chill', password: '' }}
+                    currentPlayerCount={roomInfo?.currentPlayers ?? 0}
+                    onSaveSettings={handleUpdateRoom}
                 />
 
                 {/* ── Main layout ── */}
