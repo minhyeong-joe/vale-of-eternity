@@ -9,6 +9,7 @@ import {
 
 import type { Route } from "./+types/root";
 import { UserProvider } from "./contexts/UserContext";
+import { Toaster } from "sonner";
 import "./app.css";
 import "./sprites.css";
 
@@ -52,6 +53,7 @@ export default function App() {
   return (
     <UserProvider>
       <Outlet />
+      <Toaster position="top-right" richColors />
     </UserProvider>
   );
 }

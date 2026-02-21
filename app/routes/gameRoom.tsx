@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import type { Route } from './+types/gameRoom';
 import { useUser } from '../contexts/UserContext';
+import { toast } from 'sonner';
 import { socket } from '../sockets/connection';
 import { RoomEvents, type RoomDetail, type RoomJoinedPayload, type RoomLeftPayload, type RoomUpdatePayload, type RoomUpdatedPayload } from '../sockets/contract';
 import { GameHeader } from '../components/GameHeader';
@@ -42,6 +43,10 @@ export default function GameRoom() {
     // 0 = no active player (waiting/finished); set to first player's id when game starts
     const [activePlayerId, setActivePlayerId] = useState(0);
 
+    // Ref keeps socket callbacks in sync with latest roomInfo without re-registering listeners
+    const roomInfoRef = useRef(roomInfo);
+    useEffect(() => { roomInfoRef.current = roomInfo; }, [roomInfo]);
+
     useEffect(() => {
         if (!user) navigate('/');
     }, [user, navigate]);
@@ -50,7 +55,14 @@ export default function GameRoom() {
         if (!user) return;
 
         const onJoined = (payload: RoomJoinedPayload) => {
+            const prevPlayers = roomInfoRef.current?.players ?? [];
+            const joined = payload.roomDetail.players.find(
+                p => !prevPlayers.some(pp => pp.userId === p.userId)
+            );
             setRoomInfo(payload.roomDetail);
+            if (joined && joined.userId !== user.userId) {
+                toast.success(`${joined.username} joined the room`);
+            }
             if (payload.roomDetail.status !== 'waiting') {
                 setGameStatus(payload.roomDetail.status as GameStatus);
             }
@@ -58,12 +70,18 @@ export default function GameRoom() {
 
         const onLeft = (payload: RoomLeftPayload) => {
             if (payload.roomDetail) {
+                const prevPlayers = roomInfoRef.current?.players ?? [];
+                const left = prevPlayers.find(
+                    p => !payload.roomDetail!.players.some(pp => pp.userId === p.userId)
+                );
                 setRoomInfo(payload.roomDetail);
+                if (left) toast.warning(`${left.username} left the room`);
             }
         };
 
         const onUpdated = (payload: RoomUpdatedPayload) => {
             setRoomInfo(payload.roomDetail);
+            toast.success('Room updated successfully');
         };
 
         socket.on(RoomEvents.JOINED, onJoined);

@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
+import { toast } from "sonner";
 import type { Route } from "./+types/lobby";
 import { useUser } from "../contexts/UserContext";
 import { socket } from "../sockets/connection";
 import { LobbyEvents, RoomEvents, type RoomCreatePayload, type RoomJoinPayload, type RoomJoinedPayload, type RoomErrorPayload } from "../sockets/contract";
 import { CreateRoomModal, type CreateRoomFormData } from "../components/CreateRoomModal";
+import { JoinRoomModal } from "../components/JoinRoomModal";
 import "./lobby.css";
 
 export function meta({}: Route.MetaArgs) {
@@ -34,7 +36,7 @@ export default function Lobby() {
     const [rooms, setRooms] = useState<Room[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [showCreateModal, setShowCreateModal] = useState(false);
-    const [joinError, setJoinError] = useState<string | null>(null);
+    const [pendingJoinRoom, setPendingJoinRoom] = useState<Room | null>(null);
 
     useEffect(() => {
         if (!user) {
@@ -71,17 +73,15 @@ export default function Lobby() {
     const handleJoin = (room: Room) => {
         if (room.status === "in-progress" || room.currentPlayers === room.maxPlayers) return;
 
-        let password: string | undefined;
         if (room.isPrivate) {
-            const input = window.prompt(`Enter password for "${room.name}":`);
-            if (input === null) return; // user cancelled
-            password = input || undefined;
+            setPendingJoinRoom(room);
+            return;
         }
 
-        setJoinError(null);
+        emitJoin(room.id, undefined);
+    };
 
-        const payload: RoomJoinPayload = { roomId: room.id, password };
-
+    const emitJoin = (roomId: string, password: string | undefined) => {
         const onJoined = ({ roomDetail }: RoomJoinedPayload) => {
             socket.off(RoomEvents.ERROR, onError);
             navigate(`/game-room/${roomDetail.id}`, { state: { roomDetail } });
@@ -89,12 +89,12 @@ export default function Lobby() {
 
         const onError = ({ message }: RoomErrorPayload) => {
             socket.off(RoomEvents.JOINED, onJoined);
-            setJoinError(message);
+            toast.error(message);
         };
 
         socket.once(RoomEvents.JOINED, onJoined);
         socket.once(RoomEvents.ERROR, onError);
-        socket.emit(RoomEvents.JOIN, payload);
+        socket.emit(RoomEvents.JOIN, { roomId, password } satisfies RoomJoinPayload);
     };
 
     const handleCreateRoom = () => {
@@ -293,18 +293,7 @@ export default function Lobby() {
                                     </table>
                                 </div>
 
-                                    {/* Join Error */}
-                                {joinError && (
-                                    <div className="flex items-center gap-2 mt-4 px-3 py-2 bg-red-900/40 border border-red-700/50 rounded-lg text-red-300 text-sm">
-                                        <i className="fa-solid fa-circle-exclamation text-red-400" />
-                                        {joinError}
-                                        <button onClick={() => setJoinError(null)} className="ml-auto text-red-400 hover:text-red-200 cursor-pointer">
-                                            <i className="fa-solid fa-xmark" />
-                                        </button>
-                                    </div>
-                                )}
-
-                            {/* Legend */}
+                                    {/* Legend */}
                                 <div className="flex items-center gap-5 mt-5 pt-4 border-t border-slate-700/50">
                                     <span className="flex items-center gap-1.5 text-xs text-slate-400">
                                         <i className="fa-solid fa-lock text-amber-400" />
@@ -328,6 +317,18 @@ export default function Lobby() {
                     defaultRoomName={`${user.username}'s Room`}
                     onClose={() => setShowCreateModal(false)}
                     onCreate={handleCreate}
+                />
+            )}
+
+            {/* Join Room Modal (private rooms) */}
+            {pendingJoinRoom && (
+                <JoinRoomModal
+                    roomName={pendingJoinRoom.name}
+                    onClose={() => setPendingJoinRoom(null)}
+                    onJoin={(password) => {
+                        setPendingJoinRoom(null);
+                        emitJoin(pendingJoinRoom.id, password);
+                    }}
                 />
             )}
         </>
