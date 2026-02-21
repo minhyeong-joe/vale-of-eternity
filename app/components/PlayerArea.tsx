@@ -34,7 +34,7 @@ interface PlayerAreaProps {
 function CompactPlayerArea({ player, isActive }: { player: Player; isActive: boolean }) {
     // For opponents: hand is face-down, modelled as N placeholder cards
     const handPlaceholders: Card[] = Array.from({ length: player.handCount }, (_, i) => ({
-        id: -(player.id * 100 + i),
+        id: -i,
         name: '?',
         family: 'fire' as const,
         cost: 0,

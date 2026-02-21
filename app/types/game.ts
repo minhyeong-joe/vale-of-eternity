@@ -42,7 +42,7 @@ export function totalStoneValue(s: StoneCount) {
 }
 
 export interface Player {
-    id: number;
+    id: string;
     username: string;
     color: PlayerColor;
     score: number;
@@ -60,10 +60,9 @@ export interface FamilyZone {
 }
 
 export interface GameState {
-    round: number;
-    phase: Phase;
-    activePlayerId: number;
-    myPlayerId: number;
+    round: number | null;
+    phase: Phase | '';
+    activePlayerId: string | null;
     players: Player[];
     boardZones: FamilyZone[];
     drawPileCount: number;

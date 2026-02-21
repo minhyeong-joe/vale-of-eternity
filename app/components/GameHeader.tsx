@@ -23,11 +23,11 @@ const PACE_CFG: Record<GamePace, { label: string; icon: string }> = {
 
 interface GameHeaderProps {
     status: GameStatus;
-    round: number;
-    phase: Phase;
+    round: number | null;
+    phase: Phase | '';
     players: Player[];
-    activePlayerId: number;
-    myPlayerId: number;
+    activePlayerId: string | null;
+    myPlayerId: string | null;
     onLeave: () => void;
     onStartGame?: () => void;
     /** Room metadata for the info chip + settings */
