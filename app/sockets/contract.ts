@@ -32,6 +32,10 @@ export const RoomEvents = {
     UPDATED: 'room:updated',
     /** server -> client | payload: RoomErrorPayload   | Sent to the requesting socket only on error */
     ERROR:   'room:error',
+    /** server -> client | payload: RoomPlayerReconnectingPayload | Player lost connection; 60s grace period started */
+    PLAYER_RECONNECTING: 'room:player-reconnecting',
+    /** server -> client (reconnecting socket only) | payload: RoomRestoredPayload | Grace-period reconnect succeeded */
+    RESTORED: 'room:restored',
 } as const;
 
 // ********** Room Payload Types **********
@@ -76,7 +80,7 @@ export interface RoomInfo {
 }
 
 export interface RoomDetail extends RoomInfo {
-    players: { userId: string; username: string }[];
+    players: { userId: string; username: string; isConnected: boolean }[];
 }
 
 export interface RoomJoinedPayload {
@@ -95,4 +99,13 @@ export interface RoomUpdatedPayload {
 export interface RoomErrorPayload {
     code: string;
     message: string;
+}
+
+export interface RoomPlayerReconnectingPayload {
+    userId: string;
+    username: string;
+}
+
+export interface RoomRestoredPayload {
+    roomDetail: RoomDetail;
 }

@@ -11,6 +11,7 @@ import {
     type RoomLeftPayload,
     type RoomUpdatePayload,
     type RoomUpdatedPayload,
+    type RoomPlayerReconnectingPayload,
 } from '../sockets/contract';
 import { GameHeader } from '../components/GameHeader';
 import { GameBoard } from '../components/GameBoard';
@@ -140,10 +141,6 @@ export default function GameRoom() {
     useEffect(() => { gameStatusRef.current = gameStatus; }, [gameStatus]);
 
     useEffect(() => {
-        if (!user) navigate('/');
-    }, [user, navigate]);
-
-    useEffect(() => {
         if (!user) return;
 
         const onJoined = (payload: RoomJoinedPayload) => {
@@ -179,24 +176,42 @@ export default function GameRoom() {
             toast.success('Room updated successfully');
         };
 
-        // TODO: wire up game state socket events when server-side is ready
-        // socket.on(GameEvents.STATE, (payload: GameStatePayload) => {
-        //     setGameStatus('in-progress');
-        //     setGameState(payload.gameState);
-        // });
+        const onPlayerReconnecting = ({ userId: dcUserId, username: dcUsername }: RoomPlayerReconnectingPayload) => {
+            // Mark the player as disconnected in roomInfo so the overlay renders
+            setRoomInfo(prev => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    players: prev.players.map(p =>
+                        p.userId === dcUserId ? { ...p, isConnected: false } : p
+                    ),
+                };
+            });
+            toast.warning(`${dcUsername} lost connection. Waiting to reconnect...`);
+        };
 
         socket.on(RoomEvents.JOINED, onJoined);
         socket.on(RoomEvents.LEFT, onLeft);
         socket.on(RoomEvents.UPDATED, onUpdated);
+        socket.on(RoomEvents.PLAYER_RECONNECTING, onPlayerReconnecting);
 
         return () => {
             socket.off(RoomEvents.JOINED, onJoined);
             socket.off(RoomEvents.LEFT, onLeft);
             socket.off(RoomEvents.UPDATED, onUpdated);
+            socket.off(RoomEvents.PLAYER_RECONNECTING, onPlayerReconnecting);
         };
     }, [user]);
 
     if (!user) return null;
+
+    if (!roomInfo) {
+        return (
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center">
+                <p className="text-slate-300 text-sm animate-pulse">Reconnecting to room...</p>
+            </div>
+        );
+    }
 
     // ── Derived values ───────────────────────────────────────────────────────
 
@@ -264,15 +279,23 @@ export default function GameRoom() {
                     {/* Opponents row */}
                     {opponents.length > 0 && (
                         <div className="flex gap-3">
-                            {opponents.map(p => (
-                                <div key={p.id} className="flex-1 min-w-0">
-                                    <PlayerArea
-                                        player={p}
-                                        isSelf={false}
-                                        isActive={p.id === gameState.activePlayerId}
-                                    />
-                                </div>
-                            ))}
+                            {opponents.map(p => {
+                                const isConnected = roomInfo.players.find(rp => rp.userId === p.id)?.isConnected ?? true;
+                                return (
+                                    <div key={p.id} className="flex-1 min-w-0 relative">
+                                        {!isConnected && (
+                                            <div className="absolute inset-0 bg-black/50 z-10 flex items-center justify-center rounded-lg backdrop-blur-sm">
+                                                <span className="text-slate-300 text-xs font-medium animate-pulse">Reconnecting...</span>
+                                            </div>
+                                        )}
+                                        <PlayerArea
+                                            player={p}
+                                            isSelf={false}
+                                            isActive={p.id === gameState.activePlayerId}
+                                        />
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
 

@@ -2,6 +2,7 @@ import io from 'socket.io-client';
 
 export const socket = io(import.meta.env.VITE_API_BASE_URL, {
     autoConnect: false,
+    reconnection: false,
 });
 
 if (import.meta.env.VITE_API_LOCAL) {
