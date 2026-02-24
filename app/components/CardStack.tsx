@@ -195,8 +195,8 @@ function ModalCard({ card, faceDown }: { card: Card; faceDown: boolean }) {
 
 // ─── CardStack ─────────────────────────────────────────────────────────────
 
-const CARD_W = 80;
-const CARD_H = 118;
+const CARD_W = 80 * 1.3;
+const CARD_H = 118 * 1.3;
 const STACK_OFFSET = 22; // offset for non-stretch compact stacks (always overlapping)
 const CARD_GAP = 6; // gap between cards when fully spread (no overlap)
 const MIN_OFFSET = 5; // minimum sliver per card when compressed hard

@@ -41,9 +41,16 @@ export interface Player {
     color: PlayerColor;
     score: number;
     stones: StoneCount;
+    /** Cards the player has summoned to their area */
     summonedCards: Card[];
-    hand: Card[];       // actual cards for self; empty [] for opponents
-    handCount: number;  // total hand size (use this for opponents)
+    /** Cards in the player's discard pile */
+    discardedCards: Card[];
+    hand: Card[];               // actual cards for self; empty [] for opponents
+    handCount: number;          // total hand size (use this for opponents)
+    /** Card IDs whose active effect has already been triggered this resolution phase */
+    activeEffectsUsed: number[];
+    /** Per-stone-type bonus to base value (from permanent effects like Water Giant) */
+    stoneValueBonus: StoneCount;
     isFirstPlayer: boolean;
     isCurrentTurn: boolean;
 }
@@ -53,12 +60,28 @@ export interface FamilyZone {
     cards: Card[];
 }
 
+export interface InteractionPayload {
+    type: 'target' | 'card' | 'cards' | 'choice' | 'discardThenSummon' | 'stoneOverflow';
+    forUserId: string;
+    cardId: number;
+    context: Record<string, unknown>;
+}
+
 export interface GameState {
     round: number | null;
     phase: Phase | '';
     activePlayerId: string | null;
+    /** Index into players[] for the first-player token holder this round */
+    firstPlayerIndex: number;
+    /** Ordered userId list for the snake-draft hunt; huntPicksDone tracks progress */
+    huntPickOrder: string[];
+    huntPicksDone: number;
     players: Player[];
     boardZones: FamilyZone[];
+    /** cardId → userId of who claimed the card (board markers placed during hunting) */
+    boardMarkers: Record<number, string>;
     drawPileCount: number;
     discardPileCount: number;
+    /** Non-null when a card effect is waiting for player input */
+    pendingInteraction: InteractionPayload | null;
 }

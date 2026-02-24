@@ -6,17 +6,29 @@ import { toast } from "sonner";
 import { socket } from "../sockets/connection";
 import {
 	RoomEvents,
+	GameEvents,
 	type RoomDetail,
 	type RoomJoinedPayload,
 	type RoomLeftPayload,
 	type RoomUpdatePayload,
 	type RoomUpdatedPayload,
 	type RoomPlayerReconnectingPayload,
+	type ServerGameState,
 } from "../sockets/contract";
 import { GameHeader } from "../components/GameHeader";
 import { GameBoard } from "../components/GameBoard";
 import { PlayerArea } from "../components/PlayerArea";
-import type { GameState, GameStatus, Player, PlayerColor } from "../types/game";
+import { InteractionModal } from "../components/InteractionModal";
+import { AnimationLayer, type AnimSpec } from "../components/AnimationLayer";
+import type {
+	GameState,
+	GameStatus,
+	Player,
+	PlayerColor,
+	FamilyZone,
+	Family,
+	StoneCount,
+} from "../types/game";
 import { CardRepo as C } from "../data/CardRepo";
 import type { RoomSettingsFormData } from "../components/RoomSettingsModal";
 import "./gameRoom.css";
@@ -30,7 +42,9 @@ const COLOR_DOT: Record<PlayerColor, string> = {
 	gray: "bg-gray-400",
 };
 
-// ── GameState factories ──────────────────────────────────────────────────────
+const FAMILIES: Family[] = ["fire", "water", "earth", "wind", "dragon"];
+
+// ── GameState factories / transformers ───────────────────────────────────────
 
 /**
  * Empty state for the waiting lobby.
@@ -44,8 +58,10 @@ function buildWaitingState(roomDetail: RoomDetail | null): GameState {
 		score: 0,
 		stones: { red: 0, blue: 0, purple: 0 },
 		summonedCards: [],
+		discardedCards: [],
 		hand: [],
 		handCount: 0,
+		activeEffectsUsed: [],
 		isFirstPlayer: i === 0,
 		isCurrentTurn: false,
 	}));
@@ -54,90 +70,166 @@ function buildWaitingState(roomDetail: RoomDetail | null): GameState {
 		round: null,
 		phase: "",
 		activePlayerId: null,
+		firstPlayerIndex: 0,
+		huntPickOrder: [],
+		huntPicksDone: 0,
 		players,
-		boardZones: [
-			{ family: "fire", cards: [] },
-			{ family: "water", cards: [] },
-			{ family: "earth", cards: [] },
-			{ family: "wind", cards: [] },
-			{ family: "dragon", cards: [] },
-		],
+		boardZones: FAMILIES.map((fam) => ({ family: fam, cards: [] })),
+		boardMarkers: {},
 		drawPileCount: 0,
 		discardPileCount: 0,
+		pendingInteraction: null,
 	};
 }
 
 /**
- * Simulated mid-game state (round 4) for local development.
- * Uses real player objects so self/opponent rendering is correct.
- * TODO: replace with initial game:state socket event payload when server is ready.
+ * Converts the server's authoritative state into the UI GameState,
+ * resolving card IDs into full Card objects via CardRepo.
  */
-function buildMockGameState(players: Player[]): GameState {
-	const mockData = [
-		{
-			score: 32,
-			stones: { red: 2, blue: 1, purple: 0 },
-			summoned: [C[9], C[10], C[11], C[12]],
-			hand: [C[13], C[14], C[15]],
-			handCount: 3,
-		},
-		{
-			score: 27,
-			stones: { red: 0, blue: 2, purple: 1 },
-			summoned: [C[5], C[11]],
-			hand: [],
-			handCount: 4,
-		},
-		{
-			score: 15,
-			stones: { red: 3, blue: 0, purple: 0 },
-			summoned: [C[4], C[8]],
-			hand: [],
-			handCount: 2,
-		},
-		{
-			score: 41,
-			stones: { red: 1, blue: 1, purple: 0 },
-			summoned: [C[2], C[12]],
-			hand: [],
-			handCount: 3,
-		},
-	];
+function transformServerState(
+	ss: ServerGameState,
+	myUserId: string,
+): GameState {
+	// huntPickOrder may contain player indices (numbers) or userIds (strings).
+	// Normalise to userId strings so the UI can compare against myUserId.
+	const huntPickOrder: string[] = (ss.huntPickOrder ?? []).map((entry) =>
+		typeof entry === "number"
+			? (ss.players[entry]?.userId ?? String(entry))
+			: entry,
+	);
 
-	const mockPlayers: Player[] = players.map((p, i) => {
-		const d = mockData[i % mockData.length];
-		return {
-			...p,
-			score: d.score,
-			stones: d.stones,
-			summonedCards: d.summoned,
-			hand: i === 0 ? d.hand : [], // only expose hand for self (index 0 = host in mock)
-			handCount: d.handCount,
-			isCurrentTurn: i === 0,
-		};
-	});
+	const boardZones: FamilyZone[] = FAMILIES.map((fam) => ({
+		family: fam,
+		cards: (ss.boardZones[fam] ?? []).map((id) => C[id]).filter(Boolean),
+	}));
+
+	const boardMarkers: Record<number, string> = {};
+	for (const [cardIdStr, uid] of Object.entries(ss.boardMarkers ?? {})) {
+		boardMarkers[Number(cardIdStr)] = uid;
+	}
+
+	// During hunting, whose turn it is comes from huntPickOrder[huntPicksDone],
+	// not activePlayerIndex (which tracks action/resolution phase turns only).
+	const huntingActiveUserId =
+		ss.phase === "hunting" && huntPickOrder.length > 0
+			? (huntPickOrder[ss.huntPicksDone % huntPickOrder.length] ?? null)
+			: null;
+
+	const activePlayerId =
+		huntingActiveUserId ?? ss.players[ss.activePlayerIndex]?.userId ?? null;
+
+	const players: Player[] = ss.players.map((sp, idx) => ({
+		id: sp.userId,
+		username: sp.username,
+		color: sp.color as PlayerColor,
+		score: sp.score,
+		stones: sp.stones,
+		summonedCards: (sp.area ?? []).map((id) => C[id]).filter(Boolean),
+		discardedCards: (sp.discard ?? []).map((id) => C[id]).filter(Boolean),
+		hand: (sp.hand ?? []).map((id) => C[id]).filter(Boolean),
+		handCount: sp.handCount,
+		activeEffectsUsed: sp.activeEffectsUsed ?? [],
+		stoneValueBonus: sp.stoneValueBonus ?? { red: 0, blue: 0, purple: 0 },
+		isFirstPlayer: idx === ss.firstPlayerIndex,
+		isCurrentTurn: sp.userId === activePlayerId,
+	}));
 
 	return {
-		round: 4,
-		phase: "action",
-		activePlayerId: players[0]?.id ?? null,
-		players: mockPlayers,
-		boardZones: [
-			{
-				family: "fire",
-				cards: [C[1], C[2], C[3], C[4], C[5], C[6], C[7], C[8]],
-			},
-			{ family: "water", cards: [] },
-			{ family: "earth", cards: [] },
-			{ family: "wind", cards: [] },
-			{ family: "dragon", cards: [] },
-		],
-		drawPileCount: 28,
-		discardPileCount: 14,
+		round: ss.round,
+		phase: ss.phase,
+		activePlayerId,
+		firstPlayerIndex: ss.firstPlayerIndex,
+		huntPickOrder,
+		huntPicksDone: ss.huntPicksDone ?? 0,
+		players,
+		boardZones,
+		boardMarkers,
+		drawPileCount: ss.drawDeckCount,
+		discardPileCount: ss.discardPileCount,
+		pendingInteraction: ss.pendingInteraction,
 	};
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
+
+function capturePositions(): Map<string, DOMRect> {
+	const m = new Map<string, DOMRect>();
+	document.querySelectorAll("[data-anim]").forEach((el) => {
+		const key = (el as HTMLElement).dataset.anim!;
+		m.set(key, el.getBoundingClientRect());
+	});
+	return m;
+}
+
+function computeAnimations(
+	prev: GameState,
+	next: GameState,
+	positions: Map<string, DOMRect>,
+): AnimSpec[] {
+	const specs: AnimSpec[] = [];
+	const ts = Date.now();
+	const center = (key: string) => {
+		const r = positions.get(key);
+		return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null;
+	};
+
+	const prevBoardIds = new Set(prev.boardZones.flatMap((z) => z.cards.map((c) => c.id)));
+	const nextBoardIds = new Set(next.boardZones.flatMap((z) => z.cards.map((c) => c.id)));
+	for (const cardId of prevBoardIds) {
+		if (nextBoardIds.has(cardId)) continue;
+		const from = center(`board-card-${cardId}`);
+		if (!from) continue;
+		for (const np of next.players) {
+			const pp = prev.players.find((p) => p.id === np.id);
+			if (!pp) continue;
+			const dRed = np.stones.red - pp.stones.red;
+			const dBlue = np.stones.blue - pp.stones.blue;
+			const dPurple = np.stones.purple - pp.stones.purple;
+			if (dRed > 0 || dBlue > 0 || dPurple > 0) {
+				const toDiscard = center("discard-pile");
+				if (toDiscard) specs.push({ id: `sell-card-${cardId}-${ts}`, fromX: from.x, fromY: from.y, toX: toDiscard.x, toY: toDiscard.y, content: "card-back" });
+				const toStones = center(`stones-${np.id}`);
+				if (toStones) {
+					if (dRed > 0) specs.push({ id: `sell-r-${ts}`, fromX: from.x, fromY: from.y, toX: toStones.x, toY: toStones.y, content: "stone-1" });
+					if (dBlue > 0) specs.push({ id: `sell-b-${ts}`, fromX: from.x, fromY: from.y, toX: toStones.x, toY: toStones.y, content: "stone-3" });
+					if (dPurple > 0) specs.push({ id: `sell-p-${ts}`, fromX: from.x, fromY: from.y, toX: toStones.x, toY: toStones.y, content: "stone-6" });
+				}
+				break;
+			}
+			if (np.handCount > pp.handCount) {
+				const to = center(`hand-${np.id}`);
+				if (to) specs.push({ id: `tame-${cardId}-${ts}`, fromX: from.x, fromY: from.y, toX: to.x, toY: to.y, content: "card-back" });
+				break;
+			}
+		}
+	}
+
+	if (next.drawPileCount < prev.drawPileCount) {
+		const from = center("draw-pile");
+		if (from) {
+			for (const np of next.players) {
+				const pp = prev.players.find((p) => p.id === np.id);
+				if (!pp || np.handCount <= pp.handCount) continue;
+				const to = center(`hand-${np.id}`);
+				if (to) specs.push({ id: `draw-${np.id}-${ts}`, fromX: from.x, fromY: from.y, toX: to.x, toY: to.y, content: "card-back" });
+				break;
+			}
+		}
+	}
+
+	for (const np of next.players) {
+		const pp = prev.players.find((p) => p.id === np.id);
+		if (!pp) continue;
+		const delta = np.score - pp.score;
+		if (delta <= 0) continue;
+		const to = center(`score-${np.id}`);
+		if (!to) continue;
+		const from = center(`stones-${np.id}`) ?? to;
+		specs.push({ id: `score-${np.id}-${ts}`, fromX: from.x, fromY: from.y, toX: to.x, toY: to.y, content: { text: `+${delta}` } });
+	}
+
+	return specs;
+}
 
 export function meta({}: Route.MetaArgs) {
 	return [
@@ -161,15 +253,21 @@ export default function GameRoom() {
 		buildWaitingState(roomInfo),
 	);
 
+	const [anims, setAnims] = useState<AnimSpec[]>([]);
+
 	// Refs keep socket callbacks in sync with latest state without re-registering listeners
 	const roomInfoRef = useRef(roomInfo);
 	const gameStatusRef = useRef(gameStatus);
+	const gameStateRef = useRef(gameState);
 	useEffect(() => {
 		roomInfoRef.current = roomInfo;
 	}, [roomInfo]);
 	useEffect(() => {
 		gameStatusRef.current = gameStatus;
 	}, [gameStatus]);
+	useEffect(() => {
+		gameStateRef.current = gameState;
+	}, [gameState]);
 
 	useEffect(() => {
 		if (!user) return;
@@ -230,13 +328,83 @@ export default function GameRoom() {
 		socket.on(RoomEvents.UPDATED, onUpdated);
 		socket.on(RoomEvents.PLAYER_RECONNECTING, onPlayerReconnecting);
 
+		// ── Game events ───────────────────────────────────────────────────
+
+		const onGameState = (ss: ServerGameState) => {
+			const positions = capturePositions();
+			const newState = transformServerState(ss, user.userId);
+			const newAnims = computeAnimations(gameStateRef.current, newState, positions);
+			setGameStatus("in-progress");
+			setGameState(newState);
+			if (newAnims.length > 0) setAnims((prev) => [...prev, ...newAnims]);
+		};
+
+		const onGameStateDelta = (delta: Partial<ServerGameState>) => {
+			// The server currently emits full snapshots; treat delta as full state if complete.
+			if ((delta as ServerGameState).phase) {
+				onGameState(delta as ServerGameState);
+			}
+		};
+
+		const onGameError = ({ message }: { code: string; message: string }) => {
+			toast.error(message);
+		};
+
+		const onGameEnded = ({
+			username: leavingUsername,
+		}: {
+			reason: string;
+			username: string;
+		}) => {
+			toast.error(`${leavingUsername} left — game abandoned`);
+			setGameStatus("waiting");
+			setGameState(buildWaitingState(roomInfoRef.current));
+		};
+
+		socket.on(GameEvents.STATE, onGameState);
+		socket.on(GameEvents.STATE_DELTA, onGameStateDelta);
+		socket.on(GameEvents.ERROR, onGameError);
+		socket.on(GameEvents.ENDED, onGameEnded);
+
+		// If the socket was already connected before this effect ran (e.g. page
+		// refresh: UserContext connects the socket before [user] triggers this
+		// effect), request a fresh snapshot so we don't miss the server's initial
+		// game:state emission.
+		const onConnect = () => socket.emit(GameEvents.REQUEST_STATE);
+		socket.on("connect", onConnect);
+		if (socket.connected) {
+			socket.emit(GameEvents.REQUEST_STATE);
+		}
+
 		return () => {
 			socket.off(RoomEvents.JOINED, onJoined);
 			socket.off(RoomEvents.LEFT, onLeft);
 			socket.off(RoomEvents.UPDATED, onUpdated);
 			socket.off(RoomEvents.PLAYER_RECONNECTING, onPlayerReconnecting);
+			socket.off(GameEvents.STATE, onGameState);
+			socket.off(GameEvents.STATE_DELTA, onGameStateDelta);
+			socket.off(GameEvents.ERROR, onGameError);
+			socket.off(GameEvents.ENDED, onGameEnded);
+			socket.off("connect", onConnect);
 		};
 	}, [user]);
+
+	// Auto-end resolution turn when player has no activatable active effects
+	useEffect(() => {
+		if (!user || gameState.phase !== "resolution" || gameState.pendingInteraction) return;
+		const me = gameState.players.find((p) => p.id === user.userId);
+		if (!me || gameState.activePlayerId !== user.userId) return;
+		const hasActivatable = me.summonedCards.some((card) => {
+			const hasActive = card.effects.some((e) => e.type === "active");
+			return hasActive && !me.activeEffectsUsed.includes(card.id);
+		});
+		if (hasActivatable) return;
+		const timer = setTimeout(() => {
+			toast.info("No resolution actions — ending turn");
+			socket.emit(GameEvents.END_TURN);
+		}, 800);
+		return () => clearTimeout(timer);
+	}, [user, gameState.phase, gameState.pendingInteraction, gameState.activePlayerId, gameState.players]);
 
 	if (!user) return null;
 
@@ -259,6 +427,10 @@ export default function GameRoom() {
 	const isHost = roomInfo?.hostUserId === myPlayerId;
 	const roomHostName = isHost ? user.username : (roomInfo?.hostUsername ?? "");
 
+	/** userId of whose turn it is to pick during hunting (now derived from activePlayerId) */
+	const activeHunterUserId =
+		gameState.phase === "hunting" ? gameState.activePlayerId : null;
+
 	// ── Handlers ─────────────────────────────────────────────────────────────
 
 	const handleRoomLeave = () => {
@@ -267,9 +439,7 @@ export default function GameRoom() {
 	};
 
 	const handleStartGame = () => {
-		// TODO: emit game:start; replace mock with server game:state payload
-		setGameStatus("in-progress");
-		setGameState(buildMockGameState(gameState.players));
+		socket.emit(GameEvents.START);
 	};
 
 	const handleUpdateRoom = (data: RoomSettingsFormData) => {
@@ -283,6 +453,40 @@ export default function GameRoom() {
 			isPrivate: data.password != null && data.password !== "",
 		};
 		socket.emit(RoomEvents.UPDATE, payload);
+	};
+
+	// ── Game action handlers ──────────────────────────────────────────────
+
+	const handleHuntPick = (cardId: number) => {
+		socket.emit(GameEvents.HUNT_PICK, { cardId });
+	};
+
+	const handleSell = (cardId: number) => {
+		socket.emit(GameEvents.SELL, { cardId });
+	};
+
+	const handleTame = (cardId: number) => {
+		socket.emit(GameEvents.TAME, { cardId });
+	};
+
+	const handleSummon = (cardId: number, payment: StoneCount) => {
+		socket.emit(GameEvents.SUMMON, { cardId, payment });
+	};
+
+	const handleRemove = (cardId: number, payment: StoneCount) => {
+		socket.emit(GameEvents.REMOVE, { cardId, payment });
+	};
+
+	const handleActivate = (cardId: number) => {
+		socket.emit(GameEvents.ACTIVATE, { cardId });
+	};
+
+	const handleEndTurn = () => {
+		socket.emit(GameEvents.END_TURN);
+	};
+
+	const handleRespond = (value: string | number | number[]) => {
+		socket.emit(GameEvents.RESPOND, { value });
 	};
 
 	// ── Render ───────────────────────────────────────────────────────────────
@@ -350,6 +554,15 @@ export default function GameRoom() {
 						drawPileCount={gameState.drawPileCount}
 						discardPileCount={gameState.discardPileCount}
 						myPlayerColor={myPlayer?.color}
+						myUserId={myPlayerId}
+						players={gameState.players}
+						boardMarkers={gameState.boardMarkers}
+						phase={gameState.phase}
+						activeHunterUserId={activeHunterUserId}
+						isMyTurn={isMyTurn}
+						onHuntPick={handleHuntPick}
+						onSell={handleSell}
+						onTame={handleTame}
 					/>
 
 					{/* Score strip */}
@@ -385,10 +598,35 @@ export default function GameRoom() {
 
 					{/* My player area */}
 					{myPlayer && (
-						<PlayerArea player={myPlayer} isSelf={true} isMyTurn={isMyTurn} />
+						<PlayerArea
+							player={myPlayer}
+							isSelf={true}
+							isMyTurn={isMyTurn}
+							phase={gameState.phase}
+							onSummon={handleSummon}
+							onRemove={handleRemove}
+							onActivate={handleActivate}
+							onEndTurn={handleEndTurn}
+						/>
 					)}
 				</main>
 			</div>
+
+			{/* Flying animation overlay */}
+			<AnimationLayer
+				anims={anims}
+				onAnimDone={(id) => setAnims((prev) => prev.filter((a) => a.id !== id))}
+			/>
+
+			{/* Interaction modal (card effect requires player input) */}
+			{gameState.pendingInteraction && (
+				<InteractionModal
+					interaction={gameState.pendingInteraction}
+					myUserId={myPlayerId}
+					players={gameState.players}
+					onRespond={handleRespond}
+				/>
+			)}
 		</div>
 	);
 }

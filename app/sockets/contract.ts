@@ -109,3 +109,124 @@ export interface RoomPlayerReconnectingPayload {
 export interface RoomRestoredPayload {
     roomDetail: RoomDetail;
 }
+
+// ********** Game Events **********
+
+export const GameEvents = {
+    // client → server
+    /** Emit to start a game (host only). No payload. */
+    START:     'game:start',
+    /** Hunt phase: claim a card on the board. payload: HuntPickPayload */
+    HUNT_PICK: 'game:hunt-pick',
+    /** Action phase: sell a claimed card for stones. payload: SellPayload */
+    SELL:      'game:sell',
+    /** Action phase: tame a claimed card into hand. payload: TamePayload */
+    TAME:      'game:tame',
+    /** Action phase: summon a hand card to area. payload: SummonPayload */
+    SUMMON:    'game:summon',
+    /** Action phase: remove a summoned card (pay 1 stone per round). payload: RemovePayload */
+    REMOVE:    'game:remove',
+    /** Resolution phase: activate a card's active effect. payload: ActivatePayload */
+    ACTIVATE:  'game:activate',
+    /** Respond to a pending interaction (e.g. target selection). payload: RespondPayload */
+    RESPOND:   'game:respond',
+    /** End your turn. No payload. */
+    END_TURN:  'game:end-turn',
+    /** Request a fresh state snapshot from the server (e.g. after page refresh). No payload. */
+    REQUEST_STATE: 'game:request-state',
+    // server → client
+    /** Full authoritative state snapshot. payload: ServerGameState */
+    STATE:       'game:state',
+    /** Partial state update (shallow-merged). payload: Partial<ServerGameState> */
+    STATE_DELTA: 'game:state-delta',
+    /** A card effect requires player input. payload: InteractionRequest */
+    INTERACTION: 'game:interaction',
+    /** An action failed validation. payload: { code: string; message: string } */
+    ERROR:       'game:error',
+    /** Game ended mid-match (player permanently left). payload: { reason: string; username: string } */
+    ENDED:       'game:ended',
+} as const;
+
+// ── Game payload types ──────────────────────────────────────────────────────
+
+export interface HuntPickPayload {
+    cardId: number;
+}
+
+export interface SellPayload {
+    cardId: number;
+}
+
+export interface TamePayload {
+    cardId: number;
+}
+
+export interface StoneCost {
+    red?: number;
+    blue?: number;
+    purple?: number;
+}
+
+export interface SummonPayload {
+    cardId: number;
+    payment: StoneCost;
+}
+
+export interface RemovePayload {
+    cardId: number;
+    payment: StoneCost;
+}
+
+export interface ActivatePayload {
+    cardId: number;
+}
+
+/**
+ * Sent in response to a game:interaction event.
+ * The `value` shape depends on the interaction type:
+ *   - target (userId string)
+ *   - card / discardThenSummon (cardId number)
+ *   - cards (cardId[])
+ *   - choice (option string)
+ */
+export interface RespondPayload {
+    value: string | number | number[];
+}
+
+// ── Server → Client game state shape ───────────────────────────────────────
+
+export interface ServerPlayer {
+    userId: string;
+    username: string;
+    color: string;
+    score: number;
+    stones: { red: number; blue: number; purple: number };
+    area: number[];
+    discard: number[];
+    handCount: number;
+    hand: number[];      // populated only for the requesting socket's player
+    activeEffectsUsed: number[];
+    stoneValueBonus: { red: number; blue: number; purple: number };
+}
+
+export interface ServerGameState {
+    roomId: string;
+    round: number;
+    phase: 'hunting' | 'action' | 'resolution';
+    firstPlayerIndex: number;
+    activePlayerIndex: number;
+    /** Server may send player indices (number) or userIds (string) */
+    huntPickOrder: (string | number)[];
+    huntPicksDone: number;
+    drawDeckCount: number;
+    discardPileCount: number;
+    boardZones: { fire: number[]; water: number[]; earth: number[]; wind: number[]; dragon: number[] };
+    boardMarkers: Record<string, string>;   // cardId (string key) → userId
+    pendingInteraction: {
+        type: 'target' | 'card' | 'cards' | 'choice' | 'discardThenSummon' | 'stoneOverflow';
+        forUserId: string;
+        cardId: number;
+        context: Record<string, unknown>;
+    } | null;
+    players: ServerPlayer[];
+}

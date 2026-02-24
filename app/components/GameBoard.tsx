@@ -1,12 +1,19 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import type { FamilyZone, Family, Card, PlayerColor } from "../types/game";
+import type {
+	FamilyZone,
+	Family,
+	Card,
+	PlayerColor,
+	Player,
+	Phase,
+} from "../types/game";
 import { CardImage, CardBack } from "./CardStack";
 
 // ─── Card dimensions in the hunting-ground zone ────────────────────────────
 
-const ZONE_CARD_W = 80;
-const ZONE_CARD_H = 118;
+const ZONE_CARD_W = 80 * 1.3;
+const ZONE_CARD_H = 118 * 1.3;
 
 // ─── Mini player avatar (for placed markers and flying token) ───────────────
 
@@ -93,117 +100,94 @@ interface ZoneCardProps {
 	card: Card;
 	claimedBy: PlayerColor | undefined;
 	canClaim: boolean;
-	onClaim: (card: Card, cardRect: DOMRect) => void;
+	/** True when this card has the current player's marker and it's the action phase */
+	isMine: boolean;
+	showClaimButton: boolean;
+	onClaim: (card: Card) => void;
+	onSell: (card: Card) => void;
+	onTame: (card: Card) => void;
+	isAction: boolean;
+	myUserId?: string;
+	isMyTurn?: boolean;
+	animKey?: string;
 }
 
-function ZoneCard({ card, claimedBy, canClaim, onClaim }: ZoneCardProps) {
+function ZoneCard({
+	card,
+	claimedBy,
+	canClaim,
+	isMine,
+	showClaimButton,
+	onClaim,
+	onSell,
+	onTame,
+	isAction,
+	myUserId,
+	isMyTurn,
+	animKey,
+}: ZoneCardProps) {
 	const isClaimed = claimedBy !== undefined;
-	const isClickable = canClaim && !isClaimed;
-
-	const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-		if (!isClickable) return;
-		onClaim(card, e.currentTarget.getBoundingClientRect());
-	};
+	// Show action buttons only if it's action phase, card is marked by current user, and current user is the active action player
+	const showActionButtons = isAction && isMine && isMyTurn;
 
 	return (
 		<div
-			className={`relative flex-shrink-0 rounded group ${isClickable ? "cursor-pointer" : isClaimed ? "cursor-default" : "cursor-not-allowed"}`}
-			style={{ width: ZONE_CARD_W, height: ZONE_CARD_H }}
+			data-anim={animKey}
+			className={`relative flex-shrink-0 flex flex-col rounded group ${showClaimButton && canClaim && !isClaimed ? "" : isClaimed ? "cursor-default" : "cursor-not-allowed"}`}
+			style={{ width: ZONE_CARD_W }}
 		>
 			{/* Card face */}
-			<CardImage
-				card={card}
-				width={ZONE_CARD_W}
-				height={ZONE_CARD_H}
-				onClick={isClickable ? handleClick : undefined}
-			/>
+			<div
+				className="relative"
+				style={{ width: ZONE_CARD_W, height: ZONE_CARD_H }}
+			>
+				<CardImage card={card} width={ZONE_CARD_W} height={ZONE_CARD_H} />
 
-			{/* Hover highlight ring (unclaimed only) */}
-			{isClickable && (
-				<div className="absolute inset-0 rounded opacity-0 group-hover:opacity-100 ring-2 ring-amber-400/80 bg-amber-400/10 pointer-events-none transition-opacity duration-150" />
+				{/* Claimed: dim overlay + marker badge */}
+				{isClaimed && (
+					<>
+						<div className="absolute inset-0 rounded bg-black/45 pointer-events-none" />
+						<div className="absolute bottom-1 right-1 z-10 rounded-full ring-2 ring-white/70 shadow-lg">
+							<MiniAvatar color={claimedBy} size={(TOKEN_SIZE - 6) * 2} />
+						</div>
+					</>
+				)}
+			</div>
+
+			{/* Hunting-phase: claim button below card */}
+			{showClaimButton && canClaim && !isClaimed && (
+				<button
+					onClick={() => onClaim(card)}
+					className="w-full text-xs font-bold py-1.5 rounded-md bg-amber-600/90 hover:bg-amber-500 text-white transition-colors cursor-pointer mt-1"
+				>
+					Claim
+				</button>
 			)}
 
-			{/* Claimed: dim overlay + marker badge */}
-			{isClaimed && (
-				<>
-					<div className="absolute inset-0 rounded bg-black/45 pointer-events-none" />
-					<div className="absolute bottom-1 right-1 z-10 rounded-full ring-2 ring-white/70 shadow-lg">
-						<MiniAvatar color={claimedBy} size={TOKEN_SIZE - 6} />
-					</div>
-				</>
+			{/* Action-phase: sell / tame buttons below card */}
+			{showActionButtons && (
+				<div className="flex flex-col gap-1 pt-1.5">
+					<button
+						onClick={(e) => {
+							e.stopPropagation();
+							onSell(card);
+						}}
+						className="w-full text-xs font-bold py-1.5 rounded-md bg-amber-600/90 hover:bg-amber-500 text-white transition-colors cursor-pointer"
+					>
+						Sell
+					</button>
+					<button
+						onClick={(e) => {
+							e.stopPropagation();
+							onTame(card);
+						}}
+						className="w-full text-xs font-bold py-1.5 rounded-md bg-sky-600/90 hover:bg-sky-500 text-white transition-colors cursor-pointer"
+					>
+						Tame
+					</button>
+				</div>
 			)}
 		</div>
-	);
-}
-
-// ─── Confirm modal ─────────────────────────────────────────────────────────
-
-interface ConfirmModalProps {
-	card: Card;
-	myPlayerColor: PlayerColor;
-	onCancel: () => void;
-	onConfirm: (confirmBtnRect: DOMRect) => void;
-}
-
-function ConfirmModal({
-	card,
-	myPlayerColor,
-	onCancel,
-	onConfirm,
-}: ConfirmModalProps) {
-	const handleConfirmClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-		onConfirm(e.currentTarget.getBoundingClientRect());
-	};
-
-	return createPortal(
-		<div
-			className="fixed inset-0 z-50 flex items-center justify-center p-4"
-			onClick={onCancel}
-		>
-			<div className="absolute inset-0 bg-black/65 backdrop-blur-sm" />
-			<div
-				className="relative bg-slate-800/98 border border-slate-600/80 rounded-xl shadow-2xl p-5 flex flex-col items-center gap-4"
-				style={{ minWidth: 220 }}
-				onClick={(e) => e.stopPropagation()}
-			>
-				{/* Heading */}
-				<div className="flex items-center gap-2.5">
-					<MiniAvatar color={myPlayerColor} size={26} />
-					<h3 className="text-white font-bold text-sm">Place Marker?</h3>
-				</div>
-
-				{/* Card preview */}
-				<div className="rounded-lg overflow-hidden shadow-lg ring-1 ring-slate-600/60">
-					<CardImage card={card} width={100} height={148} />
-				</div>
-
-				{/* Card name */}
-				<p className="text-slate-300 text-xs text-center leading-snug max-w-[160px]">
-					Claim <span className="text-white font-semibold">{card.name}</span>?
-					<br />
-					<span className="text-slate-500">
-						This card will be reserved for you.
-					</span>
-				</p>
-
-				{/* Action buttons */}
-				<div className="flex gap-3 w-full">
-					<button
-						onClick={onCancel}
-						className="flex-1 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-300 hover:text-white text-xs font-medium transition-colors cursor-pointer"
-					>
-						Cancel
-					</button>
-					<button
-						onClick={handleConfirmClick}
-						className="flex-1 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 border border-amber-500/70 text-white text-xs font-semibold transition-colors cursor-pointer"
-					>
-						Confirm
-					</button>
-				</div>
-			</div>
-		</div>,
-		document.body,
 	);
 }
 
@@ -214,6 +198,19 @@ interface GameBoardProps {
 	drawPileCount: number;
 	discardPileCount: number;
 	myPlayerColor?: PlayerColor;
+	/** The socket userId of the current UI user */
+	myUserId?: string;
+	/** All players (for resolving userId → PlayerColor for board markers) */
+	players?: Player[];
+	/** cardId → userId who placed a marker on it */
+	boardMarkers?: Record<number, string>;
+	phase?: Phase | "";
+	/** userId whose hunt turn it is (null outside hunting phase) */
+	activeHunterUserId?: string | null;
+	isMyTurn?: boolean;
+	onHuntPick?: (cardId: number) => void;
+	onSell?: (cardId: number) => void;
+	onTame?: (cardId: number) => void;
 }
 
 export function GameBoard({
@@ -221,65 +218,32 @@ export function GameBoard({
 	drawPileCount,
 	discardPileCount,
 	myPlayerColor,
+	myUserId,
+	players = [],
+	boardMarkers = {},
+	phase = "",
+	activeHunterUserId,
+	isMyTurn,
+	onHuntPick,
+	onSell,
+	onTame,
 }: GameBoardProps) {
-	const [claimedCards, setClaimedCards] = useState<Map<number, PlayerColor>>(
-		new Map(),
-	);
-	const [pendingClaim, setPendingClaim] = useState<{
-		card: Card;
-		cardRect: DOMRect;
-	} | null>(null);
-	const [flyToken, setFlyToken] = useState<FlyToken | null>(null);
+	/** Build a lookup: cardId → PlayerColor using boardMarkers + players array */
+	const markerColors = new Map<number, PlayerColor>();
+	for (const [cidStr, uid] of Object.entries(boardMarkers)) {
+		const p = players.find((pl) => pl.id === uid);
+		if (p) markerColors.set(Number(cidStr), p.color);
+	}
 
-	// Phase 'init' → 'flying' transition (needs two rAF to let the DOM paint first)
-	useEffect(() => {
-		if (!flyToken || flyToken.phase !== "init") return;
-		const id = requestAnimationFrame(() => {
-			requestAnimationFrame(() => {
-				setFlyToken((t) => (t ? { ...t, phase: "flying" } : null));
-			});
-		});
-		return () => cancelAnimationFrame(id);
-	}, [flyToken?.phase]);
+	const isHunting = phase === "hunting";
+	const isAction = phase === "action";
+	const canClaimNow =
+		isHunting && !!myUserId && activeHunterUserId === myUserId;
 
-	// After animation completes, commit the claimed card and remove the token
-	useEffect(() => {
-		if (!flyToken || flyToken.phase !== "flying") return;
-		const id = setTimeout(() => {
-			setClaimedCards((m) => new Map(m).set(flyToken.cardId, flyToken.color));
-			setFlyToken(null);
-		}, 440);
-		return () => clearTimeout(id);
-	}, [flyToken?.phase]);
-
-	const handleCardClaim = (card: Card, cardRect: DOMRect) => {
-		if (!myPlayerColor) return;
-		setPendingClaim({ card, cardRect });
+	const handleClaim = (card: Card) => {
+		// Emit to server
+		onHuntPick?.(card.id);
 	};
-
-	const handleConfirm = (confirmBtnRect: DOMRect) => {
-		if (!pendingClaim || !myPlayerColor) return;
-		const { card, cardRect } = pendingClaim;
-		setPendingClaim(null);
-
-		// Centre of confirm button → centre of target card
-		const fromX = confirmBtnRect.left + confirmBtnRect.width / 2;
-		const fromY = confirmBtnRect.top + confirmBtnRect.height / 2;
-		const toX = cardRect.left + cardRect.width / 2;
-		const toY = cardRect.top + cardRect.height / 2;
-
-		setFlyToken({
-			cardId: card.id,
-			color: myPlayerColor,
-			fromX,
-			fromY,
-			toX,
-			toY,
-			phase: "init",
-		});
-	};
-
-	const handleCancel = () => setPendingClaim(null);
 
 	return (
 		<>
@@ -290,7 +254,7 @@ export function GameBoard({
 						<span className="text-slate-500 text-[10px] uppercase tracking-widest">
 							Draw
 						</span>
-						<div className="relative">
+						<div className="relative" data-anim="draw-pile">
 							<CardBack width={72} height={118} />
 							<div
 								className="absolute bg-slate-700 text-white font-bold rounded-full border border-slate-500 flex items-center justify-center"
@@ -334,10 +298,18 @@ export function GameBoard({
 										{zone.cards.map((card) => (
 											<ZoneCard
 												key={card.id}
+												animKey={`board-card-${card.id}`}
 												card={card}
-												claimedBy={claimedCards.get(card.id)}
-												canClaim={!!myPlayerColor}
-												onClaim={handleCardClaim}
+												claimedBy={markerColors.get(card.id)}
+												canClaim={canClaimNow}
+												isMine={isAction && boardMarkers[card.id] === myUserId}
+												showClaimButton={isHunting}
+												onClaim={handleClaim}
+												onSell={() => onSell?.(card.id)}
+												onTame={() => onTame?.(card.id)}
+												isAction={isAction}
+												myUserId={myUserId}
+												isMyTurn={isMyTurn}
 											/>
 										))}
 									</div>
@@ -359,7 +331,7 @@ export function GameBoard({
 						<span className="text-slate-500 text-[10px] uppercase tracking-widest">
 							Discard
 						</span>
-						<div className="relative">
+						<div className="relative" data-anim="discard-pile">
 							<CardBack width={72} height={118} />
 							<div
 								className="absolute bg-slate-700 text-white font-bold rounded-full border border-slate-500 flex items-center justify-center"
@@ -378,41 +350,6 @@ export function GameBoard({
 					</div>
 				</div>
 			</div>
-
-			{/* Confirm placement modal */}
-			{pendingClaim && myPlayerColor && (
-				<ConfirmModal
-					card={pendingClaim.card}
-					myPlayerColor={myPlayerColor}
-					onCancel={handleCancel}
-					onConfirm={handleConfirm}
-				/>
-			)}
-
-			{/* Flying marker token */}
-			{flyToken &&
-				createPortal(
-					<div
-						className="fixed pointer-events-none z-[9998] rounded-full ring-2 ring-white/80 shadow-xl"
-						style={{
-							width: TOKEN_SIZE,
-							height: TOKEN_SIZE,
-							top: flyToken.fromY - TOKEN_SIZE / 2,
-							left: flyToken.fromX - TOKEN_SIZE / 2,
-							transform:
-								flyToken.phase === "flying"
-									? `translate(${flyToken.toX - flyToken.fromX}px, ${flyToken.toY - flyToken.fromY}px) scale(0.85)`
-									: "translate(0px, 0px) scale(1.1)",
-							transition:
-								flyToken.phase === "flying"
-									? "transform 0.42s cubic-bezier(0.25, 0.46, 0.45, 0.94)"
-									: "none",
-						}}
-					>
-						<MiniAvatar color={flyToken.color} size={TOKEN_SIZE} />
-					</div>,
-					document.body,
-				)}
 		</>
 	);
 }

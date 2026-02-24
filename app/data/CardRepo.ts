@@ -228,7 +228,7 @@ export const CardRepo: Record<number, Card> = {
         id: 31, name: 'Basilisk', family: 'earth', cost: 3,
         imagePath: '/assets/cards/earth/Basilisk.png',
         effects: [
-            { type: 'active', description: ['Lose 0 / 1 / 2, then earn ', { sprite: 'description-stone-1' }, ' / ', { sprite: 'description-stone-3' }, ' / ', { sprite: 'description-stone-6' }, '.'] },
+            { type: 'active', description: ['Lose ', {sprite: 'description-stone-0'},  '/ ', {sprite: 'description-stone-1'}, ' / ', {sprite: 'description-stone-2'}, ', then earn ', { sprite: 'description-stone-1' }, ' / ', { sprite: 'description-stone-3' }, ' / ', { sprite: 'description-stone-6' }, '.'] },
         ],
     },
     32: {
@@ -288,7 +288,7 @@ export const CardRepo: Record<number, Card> = {
         ],
     },
     40: {
-        id: 40, name: 'Mud Slime', family: 'earth', cost: 0,
+        id: 40, name: 'Mud Slime', family: 'earth', cost: 6,
         imagePath: '/assets/cards/earth/Mudslime.png',
         effects: [
             { type: 'instant', description: ['Earn ', { sprite: 'description-score-6' }, '.'] },
@@ -296,7 +296,7 @@ export const CardRepo: Record<number, Card> = {
         ],
     },
     41: {
-        id: 41, name: 'Rock Golem', family: 'earth', cost: 0,
+        id: 41, name: 'Rock Golem', family: 'earth', cost: 6,
         imagePath: '/assets/cards/earth/Rockgolem.png',
         effects: [
             { type: 'instant', description: ['Earn ', { sprite: 'description-score-dynamic' }, ' (total value of your ', { sprite: 'description-stone-6' }, ').'] },
