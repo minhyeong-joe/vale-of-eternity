@@ -55,7 +55,7 @@ export default function App() {
 		<UserProvider>
 			<AuthGuard>
 				<Outlet />
-				<Toaster position="top-right" richColors />
+				<Toaster position="top-center" richColors />
 			</AuthGuard>
 		</UserProvider>
 	);

@@ -1,29 +1,23 @@
 export type Family = 'fire' | 'water' | 'earth' | 'wind' | 'dragon';
-export type EffectType = 'instant' | 'permanent' | 'resolution';
+export type EffectType = 'instant' | 'permanent' | 'active';
 export type Phase = 'hunting' | 'action' | 'resolution';
 export type PlayerColor = 'purple' | 'green' | 'black' | 'gray';
 export type GameStatus = 'waiting' | 'in-progress' | 'finished';
 
-/**
- * A description token is either a plain string or a reference to a sprite
- * by its CSS class name (e.g. 'description-score-1', 'description-fire').
- */
+
 export type DescToken = string | { sprite: string };
+
+export interface CardEffect {
+    type: EffectType;
+    description: DescToken[];
+}
 
 export interface Card {
     id: number;
     name: string;
     family: Family;
     cost: number;
-    /** Base score. Use 'dynamic' for cards whose score depends on game state. */
-    score: number | 'dynamic';
-    effectType: EffectType;
-    /**
-     * Parsed card description as an array of text + sprite tokens.
-     * Renders inline, matching the card image's printed text exactly.
-     */
-    description: DescToken[];
-    /** Public path to the card face image, e.g. /assets/cards/fire/Salamander.webp */
+    effects: CardEffect[];
     imagePath: string;
 }
 
