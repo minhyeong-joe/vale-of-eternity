@@ -130,6 +130,9 @@ function transformServerState(
 		handCount: sp.handCount,
 		activeEffectsUsed: sp.activeEffectsUsed ?? [],
 		stoneValueBonus: sp.stoneValueBonus ?? { red: 0, blue: 0, purple: 0 },
+		stoneOverrides: sp.stoneOverrides ?? [],
+		costReductionAll: sp.costReductionAll ?? 0,
+		costReductionByFamily: sp.costReductionByFamily ?? {},
 		isFirstPlayer: idx === ss.firstPlayerIndex,
 		isCurrentTurn: sp.userId === activePlayerId,
 	}));
@@ -173,8 +176,12 @@ function computeAnimations(
 		return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null;
 	};
 
-	const prevBoardIds = new Set(prev.boardZones.flatMap((z) => z.cards.map((c) => c.id)));
-	const nextBoardIds = new Set(next.boardZones.flatMap((z) => z.cards.map((c) => c.id)));
+	const prevBoardIds = new Set(
+		prev.boardZones.flatMap((z) => z.cards.map((c) => c.id)),
+	);
+	const nextBoardIds = new Set(
+		next.boardZones.flatMap((z) => z.cards.map((c) => c.id)),
+	);
 	for (const cardId of prevBoardIds) {
 		if (nextBoardIds.has(cardId)) continue;
 		const from = center(`board-card-${cardId}`);
@@ -187,18 +194,58 @@ function computeAnimations(
 			const dPurple = np.stones.purple - pp.stones.purple;
 			if (dRed > 0 || dBlue > 0 || dPurple > 0) {
 				const toDiscard = center("discard-pile");
-				if (toDiscard) specs.push({ id: `sell-card-${cardId}-${ts}`, fromX: from.x, fromY: from.y, toX: toDiscard.x, toY: toDiscard.y, content: "card-back" });
+				if (toDiscard)
+					specs.push({
+						id: `sell-card-${cardId}-${ts}`,
+						fromX: from.x,
+						fromY: from.y,
+						toX: toDiscard.x,
+						toY: toDiscard.y,
+						content: "card-back",
+					});
 				const toStones = center(`stones-${np.id}`);
 				if (toStones) {
-					if (dRed > 0) specs.push({ id: `sell-r-${ts}`, fromX: from.x, fromY: from.y, toX: toStones.x, toY: toStones.y, content: "stone-1" });
-					if (dBlue > 0) specs.push({ id: `sell-b-${ts}`, fromX: from.x, fromY: from.y, toX: toStones.x, toY: toStones.y, content: "stone-3" });
-					if (dPurple > 0) specs.push({ id: `sell-p-${ts}`, fromX: from.x, fromY: from.y, toX: toStones.x, toY: toStones.y, content: "stone-6" });
+					if (dRed > 0)
+						specs.push({
+							id: `sell-r-${ts}`,
+							fromX: from.x,
+							fromY: from.y,
+							toX: toStones.x,
+							toY: toStones.y,
+							content: "stone-1",
+						});
+					if (dBlue > 0)
+						specs.push({
+							id: `sell-b-${ts}`,
+							fromX: from.x,
+							fromY: from.y,
+							toX: toStones.x,
+							toY: toStones.y,
+							content: "stone-3",
+						});
+					if (dPurple > 0)
+						specs.push({
+							id: `sell-p-${ts}`,
+							fromX: from.x,
+							fromY: from.y,
+							toX: toStones.x,
+							toY: toStones.y,
+							content: "stone-6",
+						});
 				}
 				break;
 			}
 			if (np.handCount > pp.handCount) {
 				const to = center(`hand-${np.id}`);
-				if (to) specs.push({ id: `tame-${cardId}-${ts}`, fromX: from.x, fromY: from.y, toX: to.x, toY: to.y, content: "card-back" });
+				if (to)
+					specs.push({
+						id: `tame-${cardId}-${ts}`,
+						fromX: from.x,
+						fromY: from.y,
+						toX: to.x,
+						toY: to.y,
+						content: "card-back",
+					});
 				break;
 			}
 		}
@@ -211,7 +258,15 @@ function computeAnimations(
 				const pp = prev.players.find((p) => p.id === np.id);
 				if (!pp || np.handCount <= pp.handCount) continue;
 				const to = center(`hand-${np.id}`);
-				if (to) specs.push({ id: `draw-${np.id}-${ts}`, fromX: from.x, fromY: from.y, toX: to.x, toY: to.y, content: "card-back" });
+				if (to)
+					specs.push({
+						id: `draw-${np.id}-${ts}`,
+						fromX: from.x,
+						fromY: from.y,
+						toX: to.x,
+						toY: to.y,
+						content: "card-back",
+					});
 				break;
 			}
 		}
@@ -225,7 +280,14 @@ function computeAnimations(
 		const to = center(`score-${np.id}`);
 		if (!to) continue;
 		const from = center(`stones-${np.id}`) ?? to;
-		specs.push({ id: `score-${np.id}-${ts}`, fromX: from.x, fromY: from.y, toX: to.x, toY: to.y, content: { text: `+${delta}` } });
+		specs.push({
+			id: `score-${np.id}-${ts}`,
+			fromX: from.x,
+			fromY: from.y,
+			toX: to.x,
+			toY: to.y,
+			content: { text: `+${delta}` },
+		});
 	}
 
 	return specs;
@@ -333,7 +395,11 @@ export default function GameRoom() {
 		const onGameState = (ss: ServerGameState) => {
 			const positions = capturePositions();
 			const newState = transformServerState(ss, user.userId);
-			const newAnims = computeAnimations(gameStateRef.current, newState, positions);
+			const newAnims = computeAnimations(
+				gameStateRef.current,
+				newState,
+				positions,
+			);
 			setGameStatus("in-progress");
 			setGameState(newState);
 			if (newAnims.length > 0) setAnims((prev) => [...prev, ...newAnims]);
@@ -391,7 +457,12 @@ export default function GameRoom() {
 
 	// Auto-end resolution turn when player has no activatable active effects
 	useEffect(() => {
-		if (!user || gameState.phase !== "resolution" || gameState.pendingInteraction) return;
+		if (
+			!user ||
+			gameState.phase !== "resolution" ||
+			gameState.pendingInteraction
+		)
+			return;
 		const me = gameState.players.find((p) => p.id === user.userId);
 		if (!me || gameState.activePlayerId !== user.userId) return;
 		const hasActivatable = me.summonedCards.some((card) => {
@@ -404,7 +475,13 @@ export default function GameRoom() {
 			socket.emit(GameEvents.END_TURN);
 		}, 800);
 		return () => clearTimeout(timer);
-	}, [user, gameState.phase, gameState.pendingInteraction, gameState.activePlayerId, gameState.players]);
+	}, [
+		user,
+		gameState.phase,
+		gameState.pendingInteraction,
+		gameState.activePlayerId,
+		gameState.players,
+	]);
 
 	if (!user) return null;
 
@@ -485,7 +562,9 @@ export default function GameRoom() {
 		socket.emit(GameEvents.END_TURN);
 	};
 
-	const handleRespond = (value: string | number | number[]) => {
+	const handleRespond = (
+		value: string | number | number[] | Record<string, number>,
+	) => {
 		socket.emit(GameEvents.RESPOND, { value });
 	};
 

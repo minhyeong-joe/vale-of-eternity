@@ -8,12 +8,15 @@ import { useNavigate } from "react-router";
 import { signUp } from "../apis/userAPI";
 import { SignUp } from "../components/signUp";
 import { useUser } from "../contexts/UserContext";
+import { useEffect } from "react";
 import "./signIn.css";
 
 const signInSchema = z.object({
 	username: z.string().min(1, "Username is required"),
 	password: z.string().min(1, "Password is required"),
 });
+
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 type SignInFormData = z.infer<typeof signInSchema>;
 
@@ -28,7 +31,7 @@ export default function AuthPage() {
 	const [isSignUp, setIsSignUp] = useState(false);
 	const [authError, setAuthError] = useState<string | null>(null);
 	const navigate = useNavigate();
-	const { login } = useUser();
+	const { login, loginWithGoogle } = useUser();
 
 	const signInForm = useForm<SignInFormData>({
 		resolver: zodResolver(signInSchema),
@@ -52,11 +55,48 @@ export default function AuthPage() {
 		setIsSignUp(false);
 	};
 
-	const handleGoogleAuth = () => {
-		console.log(isSignUp ? "Google sign up" : "Google sign in");
-		// TODO: Handle Google SSO
-		navigate("/lobby");
+	// Google SSO handler
+	const handleGoogleAuth = async () => {
+		try {
+			// @ts-ignore
+			const google = window.google;
+			if (!google || !GOOGLE_CLIENT_ID) {
+				alert("Google SSO not available");
+				return;
+			}
+			// Open Google One Tap or popup
+			google.accounts.id.prompt();
+		} catch (err) {
+			alert("Google SSO failed");
+		}
 	};
+
+	// Google callback
+	useEffect(() => {
+		if (!GOOGLE_CLIENT_ID) return;
+		// @ts-ignore
+		if (!window.google) {
+			const script = document.createElement("script");
+			script.src = "https://accounts.google.com/gsi/client";
+			script.async = true;
+			script.onload = () => {
+				// @ts-ignore
+				window.google.accounts.id.initialize({
+					client_id: GOOGLE_CLIENT_ID,
+					callback: async (response: any) => {
+						// Send Google token to backend
+						try {
+							await loginWithGoogle(response.credential);
+							navigate("/lobby");
+						} catch (e: any) {
+							alert(e?.message || "Google sign in failed");
+						}
+					},
+				});
+			};
+			document.body.appendChild(script);
+		}
+	}, []);
 
 	return (
 		<div className="sign-in-container fixed inset-0 bg-cover bg-center bg-no-repeat overflow-y-auto">

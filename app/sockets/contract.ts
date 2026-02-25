@@ -190,7 +190,7 @@ export interface ActivatePayload {
  *   - choice (option string)
  */
 export interface RespondPayload {
-    value: string | number | number[];
+    value: string | number | number[] | Record<string, number>;
 }
 
 // ── Server → Client game state shape ───────────────────────────────────────
@@ -207,6 +207,9 @@ export interface ServerPlayer {
     hand: number[];      // populated only for the requesting socket's player
     activeEffectsUsed: number[];
     stoneValueBonus: { red: number; blue: number; purple: number };
+    stoneOverrides: Array<{ from: string; countsAs: string }>;
+    costReductionAll: number;
+    costReductionByFamily: { fire: number; water: number; earth: number; wind: number; dragon: number };
 }
 
 export interface ServerGameState {

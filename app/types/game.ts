@@ -51,6 +51,12 @@ export interface Player {
     activeEffectsUsed: number[];
     /** Per-stone-type bonus to base value (from permanent effects like Water Giant) */
     stoneValueBonus: StoneCount;
+    /** Stone type remappings from permanent effects (e.g. Hae-tae swaps blue ↔ purple) */
+    stoneOverrides: Array<{ from: string; countsAs: string }>;
+    /** Flat cost reduction applied to all cards (e.g. Pegasus) */
+    costReductionAll: number;
+    /** Per-family cost reduction (e.g. Hippogriff for wind) */
+    costReductionByFamily: Partial<Record<Family, number>>;
     isFirstPlayer: boolean;
     isCurrentTurn: boolean;
 }

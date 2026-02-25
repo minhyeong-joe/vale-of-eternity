@@ -248,10 +248,10 @@ export function CardStack({
 	if (cards.length === 0) {
 		return (
 			<div
-				className={`flex items-center justify-center rounded border border-dashed border-slate-700 flex-shrink-0 ${className}`}
+				className={`flex items-center justify-center rounded border border-dashed border-slate-600 flex-shrink-0 ${className}`}
 				style={{ width: CARD_W, height: CARD_H }}
 			>
-				<span className="text-slate-600 text-[10px] text-center px-1 leading-tight">
+				<span className="text-slate-400 text-[10px] text-center px-1 leading-tight">
 					{emptyText}
 				</span>
 			</div>

@@ -17,21 +17,55 @@ import { StoneIcon } from "./StoneRow";
 // Sprite tokens for known choice option labels
 type LabelToken = string | { sprite: string };
 const RICH_LABELS: Record<string, LabelToken[]> = {
-	"Lose 0, earn red":    ["Lose ", { sprite: "description-score-0" }, ", earn ", { sprite: "description-stone-1" }],
-	"Lose 1, earn blue":   ["Lose ", { sprite: "description-score-1" }, ", earn ", { sprite: "description-stone-3" }],
-	"Lose 2, earn purple": ["Lose ", { sprite: "description-score-2" }, ", earn ", { sprite: "description-stone-6" }],
-	"Exchange 1 blue → 1 purple":  ["Exchange 1 ", { sprite: "description-stone-3" }, " → 1 ", { sprite: "description-stone-6" }],
-	"Exchange 1 purple → 3 blue":  ["Exchange 1 ", { sprite: "description-stone-6" }, " → 3 ", { sprite: "description-stone-3" }],
-	purple:      [{ sprite: "description-stone-6" }, " Earn 1 purple"],
-	draw:        ["Draw a card"],
-	blue2score4: ["2 ", { sprite: "description-stone-3" }, " + ", { sprite: "description-score-4" }],
+	"Lose 0, earn red": [
+		"Lose ",
+		{ sprite: "description-score-0" },
+		", earn ",
+		{ sprite: "description-stone-1" },
+	],
+	"Lose 1, earn blue": [
+		"Lose ",
+		{ sprite: "description-score-1" },
+		", earn ",
+		{ sprite: "description-stone-3" },
+	],
+	"Lose 2, earn purple": [
+		"Lose ",
+		{ sprite: "description-score-2" },
+		", earn ",
+		{ sprite: "description-stone-6" },
+	],
+	"Exchange 1 blue → 1 purple": [
+		"Exchange 1 ",
+		{ sprite: "description-stone-3" },
+		" → 1 ",
+		{ sprite: "description-stone-6" },
+	],
+	"Exchange 1 purple → 3 blue": [
+		"Exchange 1 ",
+		{ sprite: "description-stone-6" },
+		" → 3 ",
+		{ sprite: "description-stone-3" },
+	],
+	purple: [{ sprite: "description-stone-6" }, " Earn 1 purple"],
+	draw: ["Draw a card"],
+	blue2score4: [
+		"2 ",
+		{ sprite: "description-stone-3" },
+		" + ",
+		{ sprite: "description-score-4" },
+	],
 };
 
 function DescSprite({ name }: { name: string }) {
 	return (
 		<div
 			className={`sprite ${name}`}
-			style={{ display: "inline-block", verticalAlign: "middle", flexShrink: 0 }}
+			style={{
+				display: "inline-block",
+				verticalAlign: "middle",
+				flexShrink: 0,
+			}}
 		/>
 	);
 }
@@ -55,7 +89,7 @@ interface InteractionModalProps {
 	myUserId: string;
 	players: Player[];
 	/** Fired when the player submits their choice */
-	onRespond: (value: string | number | number[]) => void;
+	onRespond: (value: string | number | number[] | Record<string, number>) => void;
 }
 
 function PlayerBtn({
@@ -112,6 +146,7 @@ export function InteractionModal({
 	onRespond,
 }: InteractionModalProps) {
 	const [selectedCards, setSelectedCards] = useState<number[]>([]);
+	const [stoneAdj, setStoneAdj] = useState<Partial<StoneCount>>({});
 
 	// Only show modal to the player who needs to respond
 	if (interaction.forUserId !== myUserId) {
@@ -131,15 +166,30 @@ export function InteractionModal({
 	const type = interaction.type;
 	const me = players.find((p) => p.id === myUserId);
 
-	// ── stoneOverflow: discard one stone to get back under cap ─────────────
+	// ── stoneOverflow: choose which stones to keep (total must equal cap) ───
 	if (type === "stoneOverflow") {
 		const excess = (ctx.excess as number) ?? 1;
 		const cap = (ctx.cap as number) ?? 4;
 		const stones = me?.stones ?? { red: 0, blue: 0, purple: 0 };
-		const stoneTypes = (["red", "blue", "purple"] as const).filter(
-			(t) => stones[t] > 0,
-		);
+
+		const keptRed    = stoneAdj.red    ?? stones.red;
+		const keptBlue   = stoneAdj.blue   ?? stones.blue;
+		const keptPurple = stoneAdj.purple ?? stones.purple;
+		const kept = { red: keptRed, blue: keptBlue, purple: keptPurple };
+		const keptTotal = keptRed + keptBlue + keptPurple;
+
+		const overCap  = keptTotal > cap;
+		const underCap = keptTotal < cap;
+		const canConfirm = keptTotal === cap;
+
+		const onDec = (t: keyof StoneCount) =>
+			setStoneAdj((prev) => ({ ...prev, [t]: Math.max(0, (prev[t] ?? stones[t]) - 1) }));
+		const onInc = (t: keyof StoneCount) =>
+			setStoneAdj((prev) => ({ ...prev, [t]: Math.min(stones[t], (prev[t] ?? stones[t]) + 1) }));
+
 		const SPRITE = { red: "stone-1", blue: "stone-3", purple: "stone-6" } as const;
+		const stoneTypes = (["red", "blue", "purple"] as const).filter((t) => stones[t] > 0);
+
 		return createPortal(
 			<div className="fixed inset-0 z-50 flex items-center justify-center p-4">
 				<div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
@@ -148,20 +198,45 @@ export function InteractionModal({
 						Stone limit reached (cap: {cap})
 					</h3>
 					<p className="text-slate-400 text-xs text-center">
-						Discard {excess} stone{excess !== 1 ? "s" : ""} — choose which to remove
+						Discard {excess} stone{excess !== 1 ? "s" : ""} — choose which to keep
 					</p>
-					<div className="flex gap-3">
+					<p className={`text-[12px] font-bold ${overCap ? "text-rose-400" : underCap ? "text-rose-400" : "text-green-400"}`}>
+						Total: {keptTotal} / {cap}
+					</p>
+					{underCap && (
+						<p className="text-rose-400 text-[10px]">You have discarded too many stones</p>
+					)}
+					<div className="flex gap-5">
 						{stoneTypes.map((t) => (
-							<button
-								key={t}
-								onClick={() => onRespond(t)}
-								className="flex flex-col items-center gap-1.5 px-4 py-3 rounded-lg bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-amber-400 transition-colors cursor-pointer"
-							>
+							<div key={t} className="flex flex-col items-center gap-1">
 								<StoneIcon type={SPRITE[t]} size="md" />
-								<span className="text-slate-300 text-xs">×{stones[t]}</span>
-							</button>
+								<button
+									onClick={() => onInc(t)}
+									disabled={kept[t] >= stones[t]}
+									className="w-6 h-6 rounded bg-slate-600 hover:bg-slate-500 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold transition-colors cursor-pointer"
+								>
+									+
+								</button>
+								<span className="text-sm font-bold text-white min-w-[16px] text-center">
+									{kept[t]}
+								</span>
+								<button
+									onClick={() => onDec(t)}
+									disabled={kept[t] <= 0}
+									className="w-6 h-6 rounded bg-slate-600 hover:bg-slate-500 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold transition-colors cursor-pointer"
+								>
+									−
+								</button>
+							</div>
 						))}
 					</div>
+					<button
+						disabled={!canConfirm}
+						onClick={() => onRespond(kept)}
+						className="px-6 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold transition-colors cursor-pointer"
+					>
+						Confirm
+					</button>
 				</div>
 			</div>,
 			document.body,
@@ -333,9 +408,7 @@ export function InteractionModal({
 	// ── cards: pick multiple cards ─────────────────────────────────────────
 	if (type === "cards") {
 		const cardIds =
-			(ctx.options as number[]) ??
-			(ctx.cardIds as number[]) ??
-			[];
+			(ctx.options as number[]) ?? (ctx.cardIds as number[]) ?? [];
 		const maxCount = (ctx.maxCount as number) ?? (ctx.count as number) ?? 1;
 		const cards = cardIds.map((id) => CardRepo[id]).filter(Boolean);
 		const toggle = (id: number) =>

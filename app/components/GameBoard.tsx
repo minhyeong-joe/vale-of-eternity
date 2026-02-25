@@ -288,10 +288,10 @@ export function GameBoard({
 								{/* Cards spread in a row */}
 								{zone.cards.length === 0 ? (
 									<div
-										className="flex items-center justify-center rounded border border-dashed border-slate-700/60"
+										className="flex items-center justify-center rounded border border-dashed border-slate-600/60"
 										style={{ width: ZONE_CARD_W, height: ZONE_CARD_H }}
 									>
-										<span className="text-slate-600 text-[10px]">empty</span>
+										<span className="text-slate-500 text-[10px]">empty</span>
 									</div>
 								) : (
 									<div className="flex gap-1.5">
@@ -316,7 +316,7 @@ export function GameBoard({
 								)}
 
 								{/* Sell reward */}
-								<span className="text-slate-600 text-[9px] whitespace-nowrap">
+								<span className="text-slate-400 text-[9px] whitespace-nowrap">
 									sell → {SELL_REWARD[zone.family]}
 								</span>
 							</div>

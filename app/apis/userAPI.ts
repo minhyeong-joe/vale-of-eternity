@@ -19,3 +19,11 @@ export const signUp = async (username: string, password: string, email: string) 
     }
     return response.data.data;
 };
+
+export const googleSignIn = async (idToken: string) => {
+    const response = await api.post("/users/auth/google", { idToken });
+    if (!response) {
+        throw new Error("Google sign in failed");
+    }
+    return response.data.data;
+}

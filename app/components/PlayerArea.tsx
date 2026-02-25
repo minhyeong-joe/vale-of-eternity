@@ -95,7 +95,12 @@ function CompactPlayerArea({
 							<span className="inline-block w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse flex-shrink-0" />
 						)}
 					</div>
-					<span className="text-slate-400 text-[10px]" data-anim={`score-${player.id}`}>{player.score} pts</span>
+					<span
+						className="text-slate-400 text-[10px]"
+						data-anim={`score-${player.id}`}
+					>
+						{player.score} pts
+					</span>
 				</div>
 			</div>
 
@@ -108,7 +113,7 @@ function CompactPlayerArea({
 			<div className="flex items-start gap-2 min-w-0">
 				{/* Summoned — flex-1 so it fills the available space */}
 				<div className="flex flex-col gap-1 flex-1 min-w-0">
-					<span className="text-slate-500 text-[9px] uppercase tracking-wide">
+					<span className="text-slate-400 text-[9px] uppercase tracking-wide">
 						Summoned ({player.summonedCards.length})
 					</span>
 					<CardStack
@@ -121,8 +126,11 @@ function CompactPlayerArea({
 				</div>
 
 				{/* Hand (hidden) */}
-				<div className="flex flex-col gap-1 flex-shrink-0" data-anim={`hand-${player.id}`}>
-					<span className="text-slate-500 text-[9px] uppercase tracking-wide">
+				<div
+					className="flex flex-col gap-1 flex-shrink-0"
+					data-anim={`hand-${player.id}`}
+				>
+					<span className="text-slate-400 text-[9px] uppercase tracking-wide">
 						Hand ({player.handCount})
 					</span>
 					<CardStack
@@ -252,10 +260,15 @@ function FullPlayerArea({
 						)}
 					</div>
 					<div className="flex items-center gap-3">
-						<span className="text-slate-300 text-sm font-semibold" data-anim={`score-${player.id}`}>
+						<span
+							className="text-slate-300 text-sm font-semibold"
+							data-anim={`score-${player.id}`}
+						>
 							{player.score} pts
 						</span>
-						<div data-anim={`stones-${player.id}`}><StoneRow stones={player.stones} size="sm" showEmpty /></div>
+						<div data-anim={`stones-${player.id}`}>
+							<StoneRow stones={player.stones} size="sm" showEmpty />
+						</div>
 					</div>
 				</div>
 			</div>
@@ -264,11 +277,11 @@ function FullPlayerArea({
 			<div className="flex gap-4">
 				{/* Summoned / area cards */}
 				<div className="flex flex-col gap-1.5 flex-1 min-w-0">
-					<span className="text-slate-400 text-xs font-medium">
+					<span className="text-slate-300 text-xs font-medium">
 						Summoned ({player.summonedCards.length})
 					</span>
 					{player.summonedCards.length === 0 ? (
-						<span className="text-slate-600 text-xs italic">
+						<span className="text-slate-500 text-xs italic">
 							No summoned cards
 						</span>
 					) : (
@@ -300,15 +313,18 @@ function FullPlayerArea({
 				<div className="w-px bg-slate-600/50 self-stretch" />
 
 				{/* Hand (visible to self) */}
-				<div className="flex flex-col gap-1.5 flex-1 min-w-0" data-anim={`hand-${player.id}`}>
-					<span className="text-slate-400 text-xs font-medium">
+				<div
+					className="flex flex-col gap-1.5 flex-1 min-w-0"
+					data-anim={`hand-${player.id}`}
+				>
+					<span className="text-slate-300 text-xs font-medium">
 						Hand ({player.hand.length})
-						<span className="text-slate-600 font-normal ml-1.5 text-[10px]">
+						<span className="text-slate-500 font-normal ml-1.5 text-[10px]">
 							— secret from others
 						</span>
 					</span>
 					{player.hand.length === 0 ? (
-						<span className="text-slate-600 text-xs italic">Empty hand</span>
+						<span className="text-slate-500 text-xs italic">Empty hand</span>
 					) : (
 						<div className="flex flex-wrap gap-1.5">
 							{player.hand.map((card) => (
@@ -341,9 +357,15 @@ function FullPlayerArea({
 			{pendingSummon && (
 				<PaymentModal
 					card={pendingSummon}
-					requiredValue={pendingSummon.cost}
+					requiredValue={Math.max(
+						0,
+						pendingSummon.cost
+							- (player.costReductionByFamily?.[pendingSummon.family] ?? 0)
+							- (player.costReductionAll ?? 0),
+					)}
 					playerStones={player.stones}
 					stoneValueBonus={player.stoneValueBonus}
+					stoneOverrides={player.stoneOverrides}
 					title="Summon — choose payment"
 					confirmLabel="Summon"
 					onConfirm={(payment) => {
@@ -361,6 +383,7 @@ function FullPlayerArea({
 					requiredValue={1}
 					playerStones={player.stones}
 					stoneValueBonus={player.stoneValueBonus}
+					stoneOverrides={player.stoneOverrides}
 					title="Remove — pay stones (value ≥ round)"
 					confirmLabel="Remove"
 					onConfirm={(payment) => {

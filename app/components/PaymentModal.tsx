@@ -70,6 +70,8 @@ interface PaymentModalProps {
 	playerStones: StoneCount;
 	/** Per-stone-type bonus to base value from permanent effects (e.g. Water Giant). */
 	stoneValueBonus?: StoneCount;
+	/** Stone type remappings from permanent effects (e.g. Hae-tae swaps blue ↔ purple). */
+	stoneOverrides?: Array<{ from: string; countsAs: string }>;
 	title?: string;
 	confirmLabel?: string;
 	onConfirm: (payment: StoneCount) => void;
@@ -81,45 +83,26 @@ export function PaymentModal({
 	requiredValue,
 	playerStones,
 	stoneValueBonus = { red: 0, blue: 0, purple: 0 },
+	stoneOverrides = [],
 	title = "Pay stones",
 	confirmLabel = "Confirm",
 	onConfirm,
 	onCancel,
-	// Accept stoneOverrides from player if present
-	player,
-}: PaymentModalProps & { player?: any }) {
+}: PaymentModalProps) {
 	const [paid, setPaid] = useState<StoneCount>({ red: 0, blue: 0, purple: 0 });
 
-	// Compute effective stone values, using stoneOverrides if present
-	let effectiveValues: Record<keyof StoneCount, number> = {
-		red: 1,
-		blue: 3,
-		purple: 6,
+	// Build override map: stone type → which type it counts as
+	const overrideMap: Record<string, string> = {};
+	for (const ov of stoneOverrides) overrideMap[ov.from] = ov.countsAs;
+
+	const BASE: Record<string, number> = { red: 1, blue: 3, purple: 6 };
+	const mapped = (t: string) => overrideMap[t] ?? t;
+	// For each stone type: use the base value of the type it counts as, plus that type's bonus
+	const effectiveValues: Record<keyof StoneCount, number> = {
+		red:    (BASE[mapped("red")]    ?? 1) + (stoneValueBonus[mapped("red")    as keyof StoneCount] ?? 0),
+		blue:   (BASE[mapped("blue")]   ?? 3) + (stoneValueBonus[mapped("blue")   as keyof StoneCount] ?? 0),
+		purple: (BASE[mapped("purple")] ?? 6) + (stoneValueBonus[mapped("purple") as keyof StoneCount] ?? 0),
 	};
-	if (
-		player &&
-		Array.isArray(player.stoneOverrides) &&
-		player.stoneOverrides.length > 0
-	) {
-		// Copy base values
-		const base = { red: 1, blue: 3, purple: 6 };
-		// Apply overrides in order
-		const remap: Record<string, string> = {};
-		player.stoneOverrides.forEach((ov: { from: string; countsAs: string }) => {
-			remap[ov.from] = ov.countsAs;
-		});
-		effectiveValues = {
-			red: base[remap.red || "red"] || 1,
-			blue: base[remap.blue || "blue"] || 3,
-			purple: base[remap.purple || "purple"] || 6,
-		};
-	} else {
-		effectiveValues = {
-			red: 1 + stoneValueBonus.red,
-			blue: 3 + stoneValueBonus.blue,
-			purple: 6 + stoneValueBonus.purple,
-		};
-	}
 
 	const adj = useCallback(
 		(type: keyof StoneCount, delta: number) => {

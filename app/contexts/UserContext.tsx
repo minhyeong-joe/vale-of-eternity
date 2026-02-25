@@ -7,7 +7,7 @@ import {
 } from "react";
 import { jwtDecode, type JwtPayload } from "jwt-decode";
 
-import { signIn } from "../apis/userAPI";
+import { signIn, googleSignIn } from "../apis/userAPI";
 import { socket } from "../sockets/connection";
 
 const TOKEN_KEY = "user_token";
@@ -28,6 +28,7 @@ interface UserContextType {
 	token: string | null;
 	authReady: boolean;
 	login: (username: string, password: string) => Promise<void>;
+	loginWithGoogle: (idToken: string) => Promise<void>;
 	logout: () => void;
 }
 
@@ -89,6 +90,24 @@ export function UserProvider({ children }: { children: ReactNode }) {
 		socket.connect();
 	};
 
+	// Google SSO login
+	const loginWithGoogle = async (idToken: string) => {
+		const result = await googleSignIn(idToken);
+		const { client_token, email } = result;
+		const { userId, username: decodedUsername } =
+			jwtDecode<VoeTokenPayload>(client_token);
+		const loggedInUser: User = {
+			userId,
+			username: decodedUsername,
+			email,
+		};
+		window.localStorage.setItem(TOKEN_KEY, client_token);
+		setUser(loggedInUser);
+		setToken(client_token);
+		socket.auth = { token: client_token };
+		socket.connect();
+	};
+
 	const logout = () => {
 		socket.disconnect();
 		setUser(null);
@@ -97,7 +116,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
 	};
 
 	return (
-		<UserContext.Provider value={{ user, token, authReady, login, logout }}>
+		<UserContext.Provider
+			value={{ user, token, authReady, login, loginWithGoogle, logout }}
+		>
 			{children}
 		</UserContext.Provider>
 	);

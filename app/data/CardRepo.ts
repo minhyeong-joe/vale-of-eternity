@@ -228,7 +228,7 @@ export const CardRepo: Record<number, Card> = {
         id: 31, name: 'Basilisk', family: 'earth', cost: 3,
         imagePath: '/assets/cards/earth/Basilisk.png',
         effects: [
-            { type: 'active', description: ['Lose ', {sprite: 'description-stone-0'},  '/ ', {sprite: 'description-stone-1'}, ' / ', {sprite: 'description-stone-2'}, ', then earn ', { sprite: 'description-stone-1' }, ' / ', { sprite: 'description-stone-3' }, ' / ', { sprite: 'description-stone-6' }, '.'] },
+            { type: 'active', description: ['Lose ', {sprite: 'description-score-0'},  '/ ', {sprite: 'description-score-1'}, ' / ', {sprite: 'description-score-2'}, ', then earn ', { sprite: 'description-stone-1' }, ' / ', { sprite: 'description-stone-3' }, ' / ', { sprite: 'description-stone-6' }, '.'] },
         ],
     },
     32: {
