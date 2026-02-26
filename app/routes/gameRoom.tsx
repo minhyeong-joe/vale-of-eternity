@@ -365,6 +365,14 @@ export default function GameRoom() {
 			setRoomInfo(payload.roomDetail);
 			if (gameStatusRef.current === "waiting") {
 				setGameState(buildWaitingState(payload.roomDetail));
+			} else {
+				// Remove the left player from gameState.players if game is in-progress
+				setGameState((prev) => ({
+					...prev,
+					players: prev.players.filter((p) =>
+						payload?.roomDetail?.players.some((rp) => rp.userId === p.id),
+					),
+				}));
 			}
 			if (left)
 				toast.warning(`${left.username} left the room`, {
