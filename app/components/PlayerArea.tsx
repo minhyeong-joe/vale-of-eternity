@@ -1,12 +1,18 @@
 import { useState } from "react";
-import type { Card, Player, Phase, StoneCount } from "../types/game";
+import type {
+	Card,
+	Player,
+	Phase,
+	StoneCount,
+	GameStatus,
+} from "../types/game";
 import { CardStack, CardImage } from "./CardStack";
 import { StoneRow } from "./StoneRow";
 import { PaymentModal } from "./PaymentModal";
 
 // ─── Player avatar sprite ──────────────────────────────────────────────────
 
-function PlayerAvatar({ color, size }: { color: string; size: number }) {
+export function PlayerAvatar({ color, size }: { color: string; size: number }) {
 	const scale = size / 90; // 90 is the sprite's native size
 	return (
 		<div
@@ -37,6 +43,9 @@ interface PlayerAreaProps {
 	isActive?: boolean;
 	/** Current game phase — needed to decide which actions are available */
 	phase?: Phase | "";
+	gameStatus?: GameStatus;
+	isHost?: boolean;
+	isReady?: boolean;
 	/** Called with cardId + payment when player summons a hand card */
 	onSummon?: (cardId: number, payment: StoneCount) => void;
 	/** Called with cardId + payment when player removes a summoned card */
@@ -45,6 +54,8 @@ interface PlayerAreaProps {
 	onActivate?: (cardId: number) => void;
 	/** Called when player ends their turn */
 	onEndTurn?: () => void;
+	/** Card IDs the player can activate during Genie's instant effect (action phase) */
+	genieActivationOptions?: number[];
 }
 
 // ─── Compact opponent card ────────────────────────────────────────────────
@@ -52,9 +63,15 @@ interface PlayerAreaProps {
 function CompactPlayerArea({
 	player,
 	isActive,
+	gameStatus,
+	isHost,
+	isReady,
 }: {
 	player: Player;
 	isActive: boolean;
+	gameStatus?: GameStatus;
+	isHost?: boolean;
+	isReady?: boolean;
 }) {
 	// For opponents: hand is face-down, modelled as N placeholder cards
 	const handPlaceholders: Card[] = Array.from(
@@ -88,6 +105,20 @@ function CompactPlayerArea({
 						<span className="text-white text-xs font-semibold truncate">
 							{player.username}
 						</span>
+						{gameStatus === "waiting" &&
+							(isHost ? (
+								<span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-900/60 text-emerald-400 border border-emerald-700/40">
+									HOST
+								</span>
+							) : isReady ? (
+								<span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-900/60 text-emerald-400 border border-emerald-700/40">
+									READY
+								</span>
+							) : (
+								<span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-900/60 text-amber-400 border border-amber-700/40">
+									NOT READY
+								</span>
+							))}
 						{player.isFirstPlayer && (
 							<span className="text-yellow-400 text-[9px] font-bold">★1st</span>
 						)}
@@ -106,7 +137,12 @@ function CompactPlayerArea({
 
 			{/* Stones */}
 			<div data-anim={`stones-${player.id}`}>
-				<StoneRow stones={player.stones} size="sm" />
+				<StoneRow
+					stones={player.stones}
+					size="sm"
+					stoneValueBonus={player.stoneValueBonus}
+					stoneOverrides={player.stoneOverrides}
+				/>
 			</div>
 
 			{/* Cards row */}
@@ -210,6 +246,10 @@ function FullPlayerArea({
 	player,
 	isMyTurn,
 	phase,
+	gameStatus,
+	isHost,
+	isReady,
+	genieActivationOptions,
 	onSummon,
 	onRemove,
 	onActivate,
@@ -218,6 +258,10 @@ function FullPlayerArea({
 	player: Player;
 	isMyTurn: boolean;
 	phase: Phase | "";
+	gameStatus?: GameStatus;
+	isHost?: boolean;
+	isReady?: boolean;
+	genieActivationOptions?: number[];
 	onSummon?: (cardId: number, payment: StoneCount) => void;
 	onRemove?: (cardId: number, payment: StoneCount) => void;
 	onActivate?: (cardId: number) => void;
@@ -247,6 +291,20 @@ function FullPlayerArea({
 				<div className="flex flex-col gap-0.5">
 					<div className="flex items-center gap-2 flex-wrap">
 						<span className="text-white font-bold">{player.username}</span>
+						{gameStatus === "waiting" &&
+							(isHost ? (
+								<span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-900/60 text-emerald-400 border border-emerald-700/40">
+									HOST
+								</span>
+							) : isReady ? (
+								<span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-900/60 text-emerald-400 border border-emerald-700/40">
+									READY
+								</span>
+							) : (
+								<span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-900/60 text-amber-400 border border-amber-700/40">
+									NOT READY
+								</span>
+							))}
 						{player.isFirstPlayer && (
 							<span className="text-yellow-400 text-xs font-bold">
 								★ 1st Player
@@ -267,7 +325,13 @@ function FullPlayerArea({
 							{player.score} pts
 						</span>
 						<div data-anim={`stones-${player.id}`}>
-							<StoneRow stones={player.stones} size="sm" showEmpty />
+							<StoneRow
+								stones={player.stones}
+								size="sm"
+								showEmpty
+								stoneValueBonus={player.stoneValueBonus}
+								stoneOverrides={player.stoneOverrides}
+							/>
 						</div>
 					</div>
 				</div>
@@ -289,6 +353,12 @@ function FullPlayerArea({
 							{player.summonedCards.map((card) => {
 								const hasActive = card.effects.some((e) => e.type === "active");
 								const activeUsed = player.activeEffectsUsed.includes(card.id);
+								const genieInfeasible =
+									card.id === 50 &&
+									!player.summonedCards.some(
+										(c) =>
+											c.id !== 50 && c.effects.some((e) => e.type === "active"),
+									);
 								return (
 									<CardTile
 										key={card.id}
@@ -297,7 +367,11 @@ function FullPlayerArea({
 										actionClass="bg-rose-700/90 hover:bg-rose-600"
 										onAction={() => setPendingRemove(card)}
 										secondaryLabel={
-											canAct && isResolution && hasActive && !activeUsed
+											canAct &&
+											hasActive &&
+											!activeUsed &&
+											((isResolution && !genieInfeasible) ||
+												(genieActivationOptions?.includes(card.id) ?? false))
 												? "Activate"
 												: undefined
 										}
@@ -341,8 +415,8 @@ function FullPlayerArea({
 				</div>
 			</div>
 
-			{/* End Turn button — hidden during hunting (turn advances server-side on pick) */}
-			{isMyTurn && phase !== "hunting" && (
+			{/* End Turn button — hidden during hunting and resolution (turn advances server-side on pick) */}
+			{isMyTurn && phase !== "hunting" && phase !== "resolution" && (
 				<div className="flex gap-2 pt-2 border-t border-slate-600/50">
 					<button
 						onClick={onEndTurn}
@@ -359,9 +433,9 @@ function FullPlayerArea({
 					card={pendingSummon}
 					requiredValue={Math.max(
 						0,
-						pendingSummon.cost
-							- (player.costReductionByFamily?.[pendingSummon.family] ?? 0)
-							- (player.costReductionAll ?? 0),
+						pendingSummon.cost -
+							(player.costReductionByFamily?.[pendingSummon.family] ?? 0) -
+							(player.costReductionAll ?? 0),
 					)}
 					playerStones={player.stones}
 					stoneValueBonus={player.stoneValueBonus}
@@ -405,6 +479,10 @@ export function PlayerArea({
 	isMyTurn = false,
 	isActive = false,
 	phase = "",
+	gameStatus,
+	isHost,
+	isReady,
+	genieActivationOptions,
 	onSummon,
 	onRemove,
 	onActivate,
@@ -416,6 +494,10 @@ export function PlayerArea({
 				player={player}
 				isMyTurn={isMyTurn}
 				phase={phase}
+				gameStatus={gameStatus}
+				isHost={isHost}
+				isReady={isReady}
+				genieActivationOptions={genieActivationOptions}
 				onSummon={onSummon}
 				onRemove={onRemove}
 				onActivate={onActivate}
@@ -423,5 +505,13 @@ export function PlayerArea({
 			/>
 		);
 	}
-	return <CompactPlayerArea player={player} isActive={isActive} />;
+	return (
+		<CompactPlayerArea
+			player={player}
+			isActive={isActive}
+			gameStatus={gameStatus}
+			isHost={isHost}
+			isReady={isReady}
+		/>
+	);
 }

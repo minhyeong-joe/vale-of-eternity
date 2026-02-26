@@ -133,7 +133,7 @@ export const CardRepo: Record<number, Card> = {
         id: 18, name: 'Hydra', family: 'water', cost: 4,
         imagePath: '/assets/cards/water/Hydra.png',
         effects: [
-            { type: 'instant', description: ['Choose 2 between ', { sprite: 'description-stone-6' }, ' / draw a card / ', { sprite: 'description-stone-3' }, { sprite: 'description-stone-3' }, { sprite: 'description-score-4' }, '. Earn them.'] },
+            { type: 'instant', description: ['Choose 2 between ', { sprite: 'description-stone-6' }, ' / draw a card / ', { sprite: 'description-stone-3' }, { sprite: 'description-stone-3' }, ' / ', { sprite: 'description-score-4' }, '. Earn them.'] },
         ],
     },
     19: {

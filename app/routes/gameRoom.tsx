@@ -19,6 +19,7 @@ import { GameHeader } from "../components/GameHeader";
 import { GameBoard } from "../components/GameBoard";
 import { PlayerArea } from "../components/PlayerArea";
 import { InteractionModal } from "../components/InteractionModal";
+import { GameOverModal } from "../components/GameOverModal";
 import { AnimationLayer, type AnimSpec } from "../components/AnimationLayer";
 import type {
 	GameState,
@@ -64,6 +65,7 @@ function buildWaitingState(roomDetail: RoomDetail | null): GameState {
 		activeEffectsUsed: [],
 		isFirstPlayer: i === 0,
 		isCurrentTurn: false,
+		isReady: p.isReady ?? false,
 	}));
 
 	return {
@@ -135,6 +137,7 @@ function transformServerState(
 		costReductionByFamily: sp.costReductionByFamily ?? {},
 		isFirstPlayer: idx === ss.firstPlayerIndex,
 		isCurrentTurn: sp.userId === activePlayerId,
+		isReady: false,
 	}));
 
 	return {
@@ -316,6 +319,7 @@ export default function GameRoom() {
 	);
 
 	const [anims, setAnims] = useState<AnimSpec[]>([]);
+	const [showGameOver, setShowGameOver] = useState(false);
 
 	// Refs keep socket callbacks in sync with latest state without re-registering listeners
 	const roomInfoRef = useRef(roomInfo);
@@ -345,7 +349,9 @@ export default function GameRoom() {
 				setGameState(buildWaitingState(payload.roomDetail));
 			}
 			if (joined && joined.userId !== user.userId) {
-				toast.success(`${joined.username} joined the room`);
+				toast.success(`${joined.username} joined the room`, {
+					toasterId: "main-toaster",
+				});
 			}
 		};
 
@@ -360,12 +366,46 @@ export default function GameRoom() {
 			if (gameStatusRef.current === "waiting") {
 				setGameState(buildWaitingState(payload.roomDetail));
 			}
-			if (left) toast.warning(`${left.username} left the room`);
+			if (left)
+				toast.warning(`${left.username} left the room`, {
+					toasterId: "main-toaster",
+				});
 		};
 
 		const onUpdated = (payload: RoomUpdatedPayload) => {
+			const prev = roomInfoRef.current;
+			const prevPlayers = prev?.players ?? [];
+			const gameStarting = payload.roomDetail.status !== "waiting";
+			for (const newP of payload.roomDetail.players) {
+				const prevP = prevPlayers.find((p) => p.userId === newP.userId);
+				if (
+					prevP &&
+					prevP.isReady !== newP.isReady &&
+					gameStatusRef.current === "waiting" &&
+					!gameStarting
+				) {
+					if (newP.isReady)
+						toast.success(`${newP.username} is ready`, {
+							toasterId: "main-toaster",
+						});
+					else
+						toast.warning(`${newP.username} is not ready`, {
+							toasterId: "main-toaster",
+						});
+				}
+			}
+			if (
+				prev &&
+				(prev.name !== payload.roomDetail.name ||
+					prev.pace !== payload.roomDetail.pace ||
+					prev.maxPlayers !== payload.roomDetail.maxPlayers ||
+					prev.isPrivate !== payload.roomDetail.isPrivate)
+			) {
+				toast.success("Room updated successfully", {
+					toasterId: "main-toaster",
+				});
+			}
 			setRoomInfo(payload.roomDetail);
-			toast.success("Room updated successfully");
 		};
 
 		const onPlayerReconnecting = ({
@@ -382,7 +422,9 @@ export default function GameRoom() {
 					),
 				};
 			});
-			toast.warning(`${dcUsername} lost connection. Waiting to reconnect...`);
+			toast.warning(`${dcUsername} lost connection. Waiting to reconnect...`, {
+				toasterId: "main-toaster",
+			});
 		};
 
 		socket.on(RoomEvents.JOINED, onJoined);
@@ -400,7 +442,12 @@ export default function GameRoom() {
 				newState,
 				positions,
 			);
-			setGameStatus("in-progress");
+			if (gameStatusRef.current === "finished") {
+				setGameStatus("finished");
+				setShowGameOver(true);
+			} else {
+				setGameStatus("in-progress");
+			}
 			setGameState(newState);
 			if (newAnims.length > 0) setAnims((prev) => [...prev, ...newAnims]);
 		};
@@ -413,16 +460,10 @@ export default function GameRoom() {
 		};
 
 		const onGameError = ({ message }: { code: string; message: string }) => {
-			toast.error(message);
+			toast.error(message, { toasterId: "game-toaster" });
 		};
 
-		const onGameEnded = ({
-			username: leavingUsername,
-		}: {
-			reason: string;
-			username: string;
-		}) => {
-			toast.error(`${leavingUsername} left — game abandoned`);
+		const onGameEnded = ({}: { reason: string; username: string }) => {
 			setGameStatus("waiting");
 			setGameState(buildWaitingState(roomInfoRef.current));
 		};
@@ -460,23 +501,34 @@ export default function GameRoom() {
 		if (
 			!user ||
 			gameState.phase !== "resolution" ||
-			gameState.pendingInteraction
+			gameState.pendingInteraction ||
+			gameStatus === "finished"
 		)
 			return;
 		const me = gameState.players.find((p) => p.id === user.userId);
 		if (!me || gameState.activePlayerId !== user.userId) return;
 		const hasActivatable = me.summonedCards.some((card) => {
 			const hasActive = card.effects.some((e) => e.type === "active");
-			return hasActive && !me.activeEffectsUsed.includes(card.id);
+			if (!hasActive || me.activeEffectsUsed.includes(card.id)) return false;
+			// Genie Exalted (50): activatable as long as any other active card exists in area
+			if (card.id === 50) {
+				return me.summonedCards.some(
+					(c) => c.id !== 50 && c.effects.some((e) => e.type === "active"),
+				);
+			}
+			return true;
 		});
 		if (hasActivatable) return;
 		const timer = setTimeout(() => {
-			toast.info("No resolution actions — ending turn");
+			toast.info("No resolution actions — ending turn", {
+				toasterId: "game-toaster",
+			});
 			socket.emit(GameEvents.END_TURN);
-		}, 800);
+		}, 1000);
 		return () => clearTimeout(timer);
 	}, [
 		user,
+		gameStatus,
 		gameState.phase,
 		gameState.pendingInteraction,
 		gameState.activePlayerId,
@@ -513,6 +565,10 @@ export default function GameRoom() {
 	const handleRoomLeave = () => {
 		socket.emit(RoomEvents.LEAVE, { roomId: roomInfo?.id });
 		navigate("/lobby");
+	};
+
+	const handleReady = () => {
+		socket.emit(RoomEvents.READY);
 	};
 
 	const handleStartGame = () => {
@@ -555,7 +611,14 @@ export default function GameRoom() {
 	};
 
 	const handleActivate = (cardId: number) => {
-		socket.emit(GameEvents.ACTIVATE, { cardId });
+		if (
+			gameState.pendingInteraction?.type === "genieActivation" &&
+			gameState.pendingInteraction?.forUserId === myPlayerId
+		) {
+			socket.emit(GameEvents.RESPOND, { value: cardId });
+		} else {
+			socket.emit(GameEvents.ACTIVATE, { cardId });
+		}
 	};
 
 	const handleEndTurn = () => {
@@ -563,9 +626,15 @@ export default function GameRoom() {
 	};
 
 	const handleRespond = (
-		value: string | number | number[] | Record<string, number>,
+		value: string | number | number[] | string[] | Record<string, number>,
 	) => {
 		socket.emit(GameEvents.RESPOND, { value });
+	};
+
+	const handleGameOverClose = () => {
+		setShowGameOver(false);
+		setGameStatus("waiting");
+		setGameState(buildWaitingState(roomInfoRef.current));
 	};
 
 	// ── Render ───────────────────────────────────────────────────────────────
@@ -597,6 +666,8 @@ export default function GameRoom() {
 					}}
 					currentPlayerCount={roomInfo?.currentPlayers ?? 0}
 					onSaveSettings={handleUpdateRoom}
+					onReady={handleReady}
+					roomPlayers={roomInfo?.players ?? []}
 				/>
 
 				<main className="flex-1 flex flex-col gap-3 p-3 max-w-screen-2xl mx-auto w-full">
@@ -604,9 +675,12 @@ export default function GameRoom() {
 					{opponents.length > 0 && (
 						<div className="flex gap-3">
 							{opponents.map((p) => {
-								const isConnected =
-									roomInfo.players.find((rp) => rp.userId === p.id)
-										?.isConnected ?? true;
+								const roomPlayer = roomInfo.players.find(
+									(rp) => rp.userId === p.id,
+								);
+								const isConnected = roomPlayer?.isConnected ?? true;
+								const opponentIsHost = roomInfo.hostUserId === p.id;
+								const opponentIsReady = roomPlayer?.isReady ?? false;
 								return (
 									<div key={p.id} className="flex-1 min-w-0 relative">
 										{!isConnected && (
@@ -620,6 +694,9 @@ export default function GameRoom() {
 											player={p}
 											isSelf={false}
 											isActive={p.id === gameState.activePlayerId}
+											gameStatus={gameStatus}
+											isHost={opponentIsHost}
+											isReady={opponentIsReady}
 										/>
 									</div>
 								);
@@ -682,6 +759,22 @@ export default function GameRoom() {
 							isSelf={true}
 							isMyTurn={isMyTurn}
 							phase={gameState.phase}
+							gameStatus={gameStatus}
+							isHost={isHost}
+							isReady={
+								roomInfo.players.find((p) => p.userId === myPlayerId)
+									?.isReady ?? false
+							}
+							genieActivationOptions={
+								gameState.pendingInteraction?.type === "genieActivation" &&
+								gameState.pendingInteraction?.forUserId === myPlayerId
+									? ((
+											gameState.pendingInteraction.context as {
+												options?: number[];
+											}
+										).options ?? [])
+									: undefined
+							}
 							onSummon={handleSummon}
 							onRemove={handleRemove}
 							onActivate={handleActivate}
@@ -696,6 +789,14 @@ export default function GameRoom() {
 				anims={anims}
 				onAnimDone={(id) => setAnims((prev) => prev.filter((a) => a.id !== id))}
 			/>
+
+			{/* Game over modal */}
+			{showGameOver && (
+				<GameOverModal
+					players={gameState.players}
+					onClose={handleGameOverClose}
+				/>
+			)}
 
 			{/* Interaction modal (card effect requires player input) */}
 			{gameState.pendingInteraction && (

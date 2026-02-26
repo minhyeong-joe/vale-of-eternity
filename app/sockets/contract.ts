@@ -36,6 +36,8 @@ export const RoomEvents = {
     PLAYER_RECONNECTING: 'room:player-reconnecting',
     /** server -> client (reconnecting socket only) | payload: RoomRestoredPayload | Grace-period reconnect succeeded */
     RESTORED: 'room:restored',
+    /** client -> server | payload: none |Emit to toggle player's ready state in the game room. */
+    READY:    'room:ready',
 } as const;
 
 // ********** Room Payload Types **********
@@ -80,7 +82,7 @@ export interface RoomInfo {
 }
 
 export interface RoomDetail extends RoomInfo {
-    players: { userId: string; username: string; isConnected: boolean }[];
+    players: { userId: string; username: string; isConnected: boolean, isReady: boolean }[];
 }
 
 export interface RoomJoinedPayload {

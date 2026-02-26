@@ -55,7 +55,18 @@ export default function App() {
 		<UserProvider>
 			<AuthGuard>
 				<Outlet />
-				<Toaster position="top-center" richColors />
+				<Toaster
+					position="top-left"
+					richColors
+					duration={1500}
+					id="main-toaster"
+				/>
+				<Toaster
+					position="top-right"
+					richColors
+					duration={2000}
+					id="game-toaster"
+				/>
 			</AuthGuard>
 		</UserProvider>
 	);

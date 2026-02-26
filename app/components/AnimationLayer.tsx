@@ -32,7 +32,7 @@ function FlyingElement({
 	onDone: () => void;
 }) {
 	const ref = useRef<HTMLDivElement>(null);
-	const dur = spec.duration ?? 550;
+	const dur = spec.duration ?? 1000;
 
 	useEffect(() => {
 		const el = ref.current;
@@ -65,7 +65,11 @@ function FlyingElement({
 	let inner: React.ReactNode;
 	if (spec.content === "card-back") {
 		inner = <CardBack width={48} height={72} />;
-	} else if (spec.content === "stone-1" || spec.content === "stone-3" || spec.content === "stone-6") {
+	} else if (
+		spec.content === "stone-1" ||
+		spec.content === "stone-3" ||
+		spec.content === "stone-6"
+	) {
 		inner = <StoneIcon type={spec.content} size="md" />;
 	} else {
 		inner = (
@@ -104,7 +108,11 @@ export function AnimationLayer({ anims, onAnimDone }: AnimationLayerProps) {
 	return createPortal(
 		<>
 			{anims.map((spec) => (
-				<FlyingElement key={spec.id} spec={spec} onDone={() => onAnimDone(spec.id)} />
+				<FlyingElement
+					key={spec.id}
+					spec={spec}
+					onDone={() => onAnimDone(spec.id)}
+				/>
 			))}
 		</>,
 		document.body,

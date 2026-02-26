@@ -1,6 +1,6 @@
 export type Family = 'fire' | 'water' | 'earth' | 'wind' | 'dragon';
 export type EffectType = 'instant' | 'permanent' | 'active';
-export type Phase = 'hunting' | 'action' | 'resolution';
+export type Phase = 'hunting' | 'action' | 'resolution' | 'finished';
 export type PlayerColor = 'purple' | 'green' | 'black' | 'gray';
 export type GameStatus = 'waiting' | 'in-progress' | 'finished';
 
@@ -59,6 +59,7 @@ export interface Player {
     costReductionByFamily: Partial<Record<Family, number>>;
     isFirstPlayer: boolean;
     isCurrentTurn: boolean;
+    isReady: boolean;   // true when player has clicked "Ready" in the lobby
 }
 
 export interface FamilyZone {
@@ -67,7 +68,7 @@ export interface FamilyZone {
 }
 
 export interface InteractionPayload {
-    type: 'target' | 'card' | 'cards' | 'choice' | 'discardThenSummon' | 'stoneOverflow';
+    type: 'target' | 'card' | 'cards' | 'choice' | 'discardThenSummon' | 'stoneOverflow' | 'genieActivation';
     forUserId: string;
     cardId: number;
     context: Record<string, unknown>;

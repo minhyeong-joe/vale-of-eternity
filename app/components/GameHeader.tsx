@@ -7,9 +7,8 @@ import type { RoomSettingsFormData } from "./RoomSettingsModal";
 
 // ─── Phase config ──────────────────────────────────────────────────────────
 
-const PHASE_CFG: Record<
-	Phase,
-	{ label: string; colorClass: string; icon: string }
+const PHASE_CFG: Partial<
+	Record<Phase, { label: string; colorClass: string; icon: string }>
 > = {
 	hunting: {
 		label: "Hunting",
@@ -57,6 +56,8 @@ interface GameHeaderProps {
 	/** Number of players currently in the room (caps min maxPlayers in settings) */
 	currentPlayerCount?: number;
 	onSaveSettings?: (data: RoomSettingsFormData) => void;
+	onReady?: () => void;
+	roomPlayers?: Array<{ userId: string; username: string; isReady: boolean }>;
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────
@@ -78,6 +79,8 @@ export function GameHeader({
 	roomSettings,
 	currentPlayerCount = 2,
 	onSaveSettings,
+	onReady,
+	roomPlayers,
 }: GameHeaderProps) {
 	const [showSettings, setShowSettings] = useState(false);
 	const [tooltipPos, setTooltipPos] = useState<{
@@ -100,6 +103,13 @@ export function GameHeader({
 	const paceConf = pace ? PACE_CFG[pace] : null;
 	const activePlayer = players.find((p) => p.id === activePlayerId);
 	const isMyTurn = activePlayerId === myPlayerId;
+
+	const isAllReady = roomPlayers ? roomPlayers.every((p) => p.isReady) : false;
+	const amIReady = roomPlayers
+		? roomPlayers.find((p) => p.userId === myPlayerId)?.isReady
+		: false;
+
+	const canStartGame = isHost && isAllReady && players.length > 1;
 
 	return (
 		<>
@@ -135,16 +145,24 @@ export function GameHeader({
 						isHost ? (
 							<button
 								onClick={onStartGame}
-								className="flex items-center gap-2 px-5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 border border-emerald-500/70 text-white font-bold text-sm transition-colors cursor-pointer"
+								className={`flex items-center gap-2 px-5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 border border-emerald-500/70 text-white font-bold text-sm transition-colors ${canStartGame ? "cursor-pointer" : "opacity-50 cursor-not-allowed"}`}
+								disabled={!canStartGame}
 							>
 								<i className="fa-solid fa-play text-[11px]" />
 								{status === "finished" ? "New Game" : "Start Game"}
 							</button>
 						) : (
-							<span className="text-slate-400 text-sm animate-pulse">
-								<i className="fa-regular fa-clock mr-1.5 text-xs" />
-								Waiting for host to start…
-							</span>
+							<button
+								onClick={onReady}
+								className={`flex items-center gap-2 px-5 py-1.5 rounded-lg border text-white font-bold text-sm transition-colors cursor-pointer ${
+									amIReady
+										? "bg-rose-700/80 hover:bg-rose-700 border-rose-600/70"
+										: "bg-emerald-600 hover:bg-emerald-500 border-emerald-500/70"
+								}`}
+							>
+								<i className={`fa-solid ${amIReady ? "fa-xmark" : "fa-check"} text-[11px]`} />
+								{amIReady ? "Cancel Ready" : "Ready"}
+							</button>
 						)
 					) : (
 						/* ── In-progress: round / phase / turn / dots ── */
@@ -208,7 +226,7 @@ export function GameHeader({
 				</div>
 
 				{/* Right side: Settings (host only, waiting only) + Leave */}
-				<div className="flex items-center gap-2 flex-shrink-0">
+				<div className="flex items-center gap-3 flex-shrink-0">
 					{isHost && status === "waiting" && roomSettings && onSaveSettings && (
 						<button
 							onClick={() => setShowSettings(true)}
@@ -251,6 +269,14 @@ export function GameHeader({
 						style={{ left: tooltipPos.left, top: tooltipPos.top }}
 					>
 						<div className="bg-slate-900 border border-slate-600/70 rounded-lg shadow-xl p-3 w-52 space-y-2">
+							{roomName && (
+								<div className="flex items-center gap-2 text-sm text-slate-300">
+									<i className="fa-solid fa-door-open text-slate-500 text-xs" />
+									<span className="font-medium text-white/90 truncate">
+										{roomName}
+									</span>
+								</div>
+							)}
 							{roomHost && (
 								<div className="flex items-center gap-2 text-xs text-slate-300">
 									<i className="fa-solid fa-user text-slate-500 w-3 text-center" />

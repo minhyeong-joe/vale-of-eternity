@@ -103,7 +103,7 @@ export default function Lobby() {
 
 		const onError = ({ message }: RoomErrorPayload) => {
 			socket.off(RoomEvents.JOINED, onJoined);
-			toast.error(message);
+			toast.error(message, { toasterId: "main-toaster" });
 		};
 
 		socket.once(RoomEvents.JOINED, onJoined);
