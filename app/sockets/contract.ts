@@ -147,6 +147,8 @@ export const GameEvents = {
     ERROR:       'game:error',
     /** Game ended mid-match (player permanently left). payload: { reason: string; username: string } */
     ENDED:       'game:ended',
+    /** Broadcast to all room sockets after any player takes a game action. payload: GameActionPayload */
+    ACTION:      'game:action',
 } as const;
 
 // ── Game payload types ──────────────────────────────────────────────────────
@@ -234,4 +236,31 @@ export interface ServerGameState {
         context: Record<string, unknown>;
     } | null;
     players: ServerPlayer[];
+}
+
+// ── game:action payload ──────────────────────────────────────────────────────
+
+export type GameAction =
+    | 'start'
+    | 'hunt-pick'
+    | 'sell'
+    | 'tame'
+    | 'summon'
+    | 'remove'
+    | 'activate'
+    | 'respond'
+    | 'end-turn'
+    | 'interaction';
+
+export interface GameActionPayload {
+    action: GameAction;
+    userId: string;
+    username: string;
+    /** Card acted upon (hunt-pick, sell, tame, summon, remove, activate, interaction) */
+    cardId?: number;
+    /** Stones the player received as a result (sell) */
+    stonesGained?: StoneCost;
+    /** For 'respond': type of the interaction that was answered.
+     *  For 'interaction': type of the pending interaction. */
+    interactionType?: 'target' | 'card' | 'cards' | 'choice' | 'discardThenSummon' | 'stoneOverflow';
 }

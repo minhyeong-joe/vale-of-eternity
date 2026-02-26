@@ -13,3 +13,10 @@ body {
     color-scheme: dark;
   }
 }
+
+.sonner-toast[data-toaster-id="game-toaster"] {
+  background: #1e293b;
+  border: 2px solid #38bdf8;
+  color: #e0e7ef;
+  box-shadow: 0 2px 16px #0008;
+}

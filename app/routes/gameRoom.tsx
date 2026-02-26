@@ -14,7 +14,9 @@ import {
 	type RoomUpdatedPayload,
 	type RoomPlayerReconnectingPayload,
 	type ServerGameState,
+	type GameActionPayload,
 } from "../sockets/contract";
+import type { InteractionPayload } from "../types/game";
 import { GameHeader } from "../components/GameHeader";
 import { GameBoard } from "../components/GameBoard";
 import { PlayerArea } from "../components/PlayerArea";
@@ -34,6 +36,10 @@ import { CardRepo as C } from "../data/CardRepo";
 import type { RoomSettingsFormData } from "../components/RoomSettingsModal";
 import "./gameRoom.css";
 import { set } from "zod";
+
+function playAudio(src: string) {
+	new Audio(src).play().catch(() => {});
+}
 
 const PLAYER_COLORS: PlayerColor[] = ["purple", "green", "black", "gray"];
 
@@ -290,7 +296,7 @@ function computeAnimations(
 			fromY: from.y,
 			toX: to.x,
 			toY: to.y,
-			content: { text: `+${delta}` },
+			content: { score: `+${delta}` },
 		});
 	}
 
@@ -478,12 +484,22 @@ export default function GameRoom() {
 
 		const onGameState = (ss: ServerGameState) => {
 			const positions = capturePositions();
+			const prevState = gameStateRef.current;
 			const newState = transformServerState(ss, user.userId);
-			const newAnims = computeAnimations(
-				gameStateRef.current,
-				newState,
-				positions,
-			);
+			const newAnims = computeAnimations(prevState, newState, positions);
+
+			if (gameStatusRef.current === "in-progress") {
+				if (newState.phase === "finished") {
+					playAudio("/audio/game-end.mp3");
+				} else {
+					const anyScoreUp = newState.players.some((np) => {
+						const pp = prevState.players.find((p) => p.id === np.id);
+						return pp && np.score > pp.score;
+					});
+					if (anyScoreUp) playAudio("/audio/ding.mp3");
+				}
+			}
+
 			if (gameStatusRef.current === "finished") {
 				setGameStatus("finished");
 				setShowGameOver(true);
@@ -502,6 +518,7 @@ export default function GameRoom() {
 		};
 
 		const onGameError = ({ message }: { code: string; message: string }) => {
+			playAudio("/audio/error.mp3");
 			toast.error(message, { toasterId: "game-toaster" });
 		};
 
@@ -514,10 +531,182 @@ export default function GameRoom() {
 			setGameState(buildWaitingState(roomInfoRef.current));
 		};
 
+		const onGameAction = (payload: GameActionPayload) => {
+			const { action, username, cardId, stonesGained, interactionType } =
+				payload;
+			if (action === "start") playAudio("/audio/select.mp3");
+			else if (action === "hunt-pick") playAudio("/audio/marker.mp3");
+			else if (action === "sell") {
+				playAudio("/audio/card.mp3");
+				playAudio("/audio/coin.mp3");
+			} else if (action === "end-turn") {
+				playAudio("/audio/select.mp3");
+			} else if (
+				action === "tame" ||
+				action === "summon" ||
+				action === "remove"
+			) {
+				playAudio("/audio/card.mp3");
+			}
+			const cardName = cardId != null ? (C[cardId]?.name ?? `#${cardId}`) : "";
+
+			const stoneNodes = (stones: typeof stonesGained) => {
+				if (!stones) return null;
+				const parts: React.ReactNode[] = [];
+				if (stones.red)
+					parts.push(
+						<span key="r" className="inline-flex items-center gap-0.5">
+							{stones.red}
+							<span className="sprite description-stone-1 inline-block" />
+						</span>,
+					);
+				if (stones.blue)
+					parts.push(
+						<span key="b" className="inline-flex items-center gap-0.5">
+							{stones.blue}
+							<span className="sprite description-stone-3 inline-block" />
+						</span>,
+					);
+				if (stones.purple)
+					parts.push(
+						<span key="p" className="inline-flex items-center gap-0.5">
+							{stones.purple}
+							<span className="sprite description-stone-6 inline-block" />
+						</span>,
+					);
+				return parts.length ? (
+					<span className="inline-flex items-center gap-1">{parts}</span>
+				) : null;
+			};
+
+			const interactionLabel: Record<string, string> = {
+				target: "choose a target",
+				card: "choose a card",
+				cards: "choose cards",
+				choice: "make a choice",
+				discardThenSummon: "discard then summon",
+				stoneOverflow: "distribute excess stones",
+			};
+
+			let msg: React.ReactNode;
+			switch (action) {
+				case "start":
+					msg = "Game has started";
+					break;
+				case "hunt-pick":
+					msg = (
+						<span>
+							{username} claimed <b>{cardName}</b>
+						</span>
+					);
+					break;
+				case "sell": {
+					const s = stoneNodes(stonesGained);
+					msg = s ? (
+						<span>
+							{username} sold <b>{cardName}</b> for {s}
+						</span>
+					) : (
+						<span>
+							{username} sold <b>{cardName}</b>
+						</span>
+					);
+					break;
+				}
+				case "tame":
+					msg = (
+						<span>
+							{username} tamed <b>{cardName}</b>
+						</span>
+					);
+					break;
+				case "summon":
+					msg = (
+						<span>
+							{username} summoned <b>{cardName}</b>
+						</span>
+					);
+					break;
+				case "remove":
+					msg = (
+						<span>
+							{username} removed <b>{cardName}</b>
+						</span>
+					);
+					break;
+				case "activate":
+					msg = (
+						<span>
+							{username} activated <b>{cardName}</b>
+						</span>
+					);
+					break;
+				// case "respond":
+				// 	msg = interactionType ? (
+				// 		<span>
+				// 			{username} resolved:{" "}
+				// 			{interactionLabel[interactionType] ?? interactionType}
+				// 		</span>
+				// 	) : (
+				// 		<span>{username} responded</span>
+				// 	);
+				// 	break;
+				case "end-turn":
+					msg = <span>{username} ended turn</span>;
+					break;
+				case "interaction":
+					msg = interactionType ? (
+						<span>
+							{username} must{" "}
+							{interactionLabel[interactionType] ?? interactionType}
+							{cardName ? (
+								<>
+									{" "}
+									for <b>{cardName}</b>
+								</>
+							) : (
+								""
+							)}
+						</span>
+					) : (
+						<span>{username} is responding</span>
+					);
+					break;
+			}
+
+			if (msg) toast(msg, { toasterId: "game-toaster" });
+		};
+
+		const onGameInteraction = (payload: InteractionPayload) => {
+			const player = gameStateRef.current.players.find(
+				(p) => p.id === payload.forUserId,
+			);
+			const username = player?.username ?? "A player";
+			const cardName = C[payload.cardId]?.name ?? `#${payload.cardId}`;
+			const interactionLabel: Record<string, string> = {
+				target: "choose a target",
+				card: "choose a card",
+				cards: "choose cards",
+				choice: "make a choice",
+				discardThenSummon: "discard then summon",
+				stoneOverflow: "distribute excess stones",
+				genieActivation: "choose an active effect to copy",
+			};
+			const label = interactionLabel[payload.type] ?? payload.type;
+			toast(
+				<span>
+					{username} must {label} for <b>{cardName}</b>
+				</span>,
+				{ toasterId: "game-toaster" },
+			);
+		};
+
 		socket.on(GameEvents.STATE, onGameState);
 		socket.on(GameEvents.STATE_DELTA, onGameStateDelta);
 		socket.on(GameEvents.ERROR, onGameError);
 		socket.on(GameEvents.ENDED, onGameEnded);
+		socket.on(GameEvents.ACTION, onGameAction);
+		socket.on(GameEvents.INTERACTION, onGameInteraction);
 
 		// If the socket was already connected before this effect ran (e.g. page
 		// refresh: UserContext connects the socket before [user] triggers this
@@ -547,6 +736,8 @@ export default function GameRoom() {
 			socket.off(GameEvents.STATE_DELTA, onGameStateDelta);
 			socket.off(GameEvents.ERROR, onGameError);
 			socket.off(GameEvents.ENDED, onGameEnded);
+			socket.off(GameEvents.ACTION, onGameAction);
+			socket.off(GameEvents.INTERACTION, onGameInteraction);
 			socket.off("connect", onConnectRequestState);
 			socket.off("disconnect", onOwnDisconnect);
 		};
@@ -576,9 +767,6 @@ export default function GameRoom() {
 		});
 		if (hasActivatable) return;
 		const timer = setTimeout(() => {
-			toast.info("No resolution actions — ending turn", {
-				toasterId: "game-toaster",
-			});
 			socket.emit(GameEvents.END_TURN);
 		}, 1000);
 		return () => clearTimeout(timer);

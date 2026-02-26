@@ -8,7 +8,7 @@ export type AnimContent =
 	| "stone-1"
 	| "stone-3"
 	| "stone-6"
-	| { text: string };
+	| { score: string };
 
 export interface AnimSpec {
 	id: string;
@@ -74,7 +74,7 @@ function FlyingElement({
 	} else {
 		inner = (
 			<span className="text-yellow-300 font-bold text-base drop-shadow-[0_0_6px_rgba(252,211,77,0.9)]">
-				{spec.content.text}
+				{spec.content.score}
 			</span>
 		);
 	}
