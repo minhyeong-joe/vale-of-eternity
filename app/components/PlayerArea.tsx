@@ -43,6 +43,7 @@ interface PlayerAreaProps {
 	isActive?: boolean;
 	/** Current game phase — needed to decide which actions are available */
 	phase?: Phase | "";
+	round?: number;
 	gameStatus?: GameStatus;
 	isHost?: boolean;
 	isReady?: boolean;
@@ -246,6 +247,7 @@ function FullPlayerArea({
 	player,
 	isMyTurn,
 	phase,
+	round,
 	gameStatus,
 	isHost,
 	isReady,
@@ -258,6 +260,7 @@ function FullPlayerArea({
 	player: Player;
 	isMyTurn: boolean;
 	phase: Phase | "";
+	round: number;
 	gameStatus?: GameStatus;
 	isHost?: boolean;
 	isReady?: boolean;
@@ -454,7 +457,7 @@ function FullPlayerArea({
 			{pendingRemove && (
 				<PaymentModal
 					card={pendingRemove}
-					requiredValue={1}
+					requiredValue={round}
 					playerStones={player.stones}
 					stoneValueBonus={player.stoneValueBonus}
 					stoneOverrides={player.stoneOverrides}
@@ -479,6 +482,7 @@ export function PlayerArea({
 	isMyTurn = false,
 	isActive = false,
 	phase = "",
+	round = 0,
 	gameStatus,
 	isHost,
 	isReady,
@@ -494,6 +498,7 @@ export function PlayerArea({
 				player={player}
 				isMyTurn={isMyTurn}
 				phase={phase}
+				round={round}
 				gameStatus={gameStatus}
 				isHost={isHost}
 				isReady={isReady}
