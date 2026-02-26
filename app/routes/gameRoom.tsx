@@ -33,6 +33,7 @@ import type {
 import { CardRepo as C } from "../data/CardRepo";
 import type { RoomSettingsFormData } from "../components/RoomSettingsModal";
 import "./gameRoom.css";
+import { set } from "zod";
 
 const PLAYER_COLORS: PlayerColor[] = ["purple", "green", "black", "gray"];
 
@@ -320,6 +321,9 @@ export default function GameRoom() {
 
 	const [anims, setAnims] = useState<AnimSpec[]>([]);
 	const [showGameOver, setShowGameOver] = useState(false);
+	const [selfReconnectStart, setSelfReconnectStart] = useState<number | null>(null);
+	const [playerDisconnectTimes, setPlayerDisconnectTimes] = useState<Record<string, number>>({});
+	const [, setTick] = useState(0);
 
 	// Refs keep socket callbacks in sync with latest state without re-registering listeners
 	const roomInfoRef = useRef(roomInfo);
@@ -334,6 +338,30 @@ export default function GameRoom() {
 	useEffect(() => {
 		gameStateRef.current = gameState;
 	}, [gameState]);
+
+	// Tick every second while any reconnect timer is active
+	useEffect(() => {
+		const hasActive = selfReconnectStart !== null || Object.keys(playerDisconnectTimes).length > 0;
+		if (!hasActive) return;
+		const id = setInterval(() => setTick((t) => t + 1), 1000);
+		return () => clearInterval(id);
+	}, [selfReconnectStart, playerDisconnectTimes]);
+
+	// Clear opponent disconnect times when they reconnect (isConnected flips back)
+	useEffect(() => {
+		if (!roomInfo) return;
+		setPlayerDisconnectTimes((prev) => {
+			const next = { ...prev };
+			let changed = false;
+			for (const p of roomInfo.players) {
+				if (p.isConnected !== false && next[p.userId]) {
+					delete next[p.userId];
+					changed = true;
+				}
+			}
+			return changed ? next : prev;
+		});
+	}, [roomInfo]);
 
 	useEffect(() => {
 		if (!user) return;
@@ -420,7 +448,6 @@ export default function GameRoom() {
 			userId: dcUserId,
 			username: dcUsername,
 		}: RoomPlayerReconnectingPayload) => {
-			// Mark the player as disconnected in roomInfo so the overlay renders
 			setRoomInfo((prev) => {
 				if (!prev) return prev;
 				return {
@@ -430,6 +457,7 @@ export default function GameRoom() {
 					),
 				};
 			});
+			setPlayerDisconnectTimes((prev) => ({ ...prev, [dcUserId]: Date.now() }));
 			toast.warning(`${dcUsername} lost connection. Waiting to reconnect...`, {
 				toasterId: "main-toaster",
 			});
@@ -471,7 +499,11 @@ export default function GameRoom() {
 			toast.error(message, { toasterId: "game-toaster" });
 		};
 
-		const onGameEnded = ({}: { reason: string; username: string }) => {
+		const onGameEnded = ({ reason }: { reason: string; username: string }) => {
+			if (reason === "session_expired") {
+				navigate("/lobby", { replace: true });
+				return;
+			}
 			setGameStatus("waiting");
 			setGameState(buildWaitingState(roomInfoRef.current));
 		};
@@ -485,11 +517,20 @@ export default function GameRoom() {
 		// refresh: UserContext connects the socket before [user] triggers this
 		// effect), request a fresh snapshot so we don't miss the server's initial
 		// game:state emission.
-		const onConnect = () => socket.emit(GameEvents.REQUEST_STATE);
-		socket.on("connect", onConnect);
+		const onConnectRequestState = () => {
+			setSelfReconnectStart(null);
+			socket.emit(GameEvents.REQUEST_STATE);
+		};
+		socket.on("connect", onConnectRequestState);
 		if (socket.connected) {
 			socket.emit(GameEvents.REQUEST_STATE);
 		}
+
+		const onOwnDisconnect = (reason: string) => {
+			if (reason === "io server disconnect") return;
+			setSelfReconnectStart(Date.now());
+		};
+		socket.on("disconnect", onOwnDisconnect);
 
 		return () => {
 			socket.off(RoomEvents.JOINED, onJoined);
@@ -500,7 +541,8 @@ export default function GameRoom() {
 			socket.off(GameEvents.STATE_DELTA, onGameStateDelta);
 			socket.off(GameEvents.ERROR, onGameError);
 			socket.off(GameEvents.ENDED, onGameEnded);
-			socket.off("connect", onConnect);
+			socket.off("connect", onConnectRequestState);
+			socket.off("disconnect", onOwnDisconnect);
 		};
 	}, [user]);
 
@@ -694,7 +736,7 @@ export default function GameRoom() {
 										{!isConnected && (
 											<div className="absolute inset-0 bg-black/50 z-10 flex items-center justify-center rounded-lg backdrop-blur-sm">
 												<span className="text-slate-300 text-xs font-medium animate-pulse">
-													Reconnecting...
+													Reconnecting... ({Math.max(0, 60 - Math.floor((Date.now() - (playerDisconnectTimes[p.id] ?? Date.now())) / 1000))}s)
 												</span>
 											</div>
 										)}
@@ -814,6 +856,17 @@ export default function GameRoom() {
 					players={gameState.players}
 					onRespond={handleRespond}
 				/>
+			)}
+
+			{/* Reconnecting overlay */}
+			{selfReconnectStart !== null && (
+				<div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
+					<div className="w-8 h-8 border-2 border-slate-400 border-t-white rounded-full animate-spin" />
+					<p className="text-white text-sm font-medium">Reconnecting...</p>
+					<p className="text-slate-400 text-xs">
+						Your game is held for up to {Math.max(0, 60 - Math.floor((Date.now() - selfReconnectStart) / 1000))} seconds
+					</p>
+				</div>
 			)}
 		</div>
 	);

@@ -12,16 +12,15 @@ export function AuthGuard({ children }: { children: ReactNode }) {
 	useEffect(() => {
 		if (!user) return;
 		const onRestored = ({ roomDetail }: RoomRestoredPayload) => {
-			navigate(`/game-room/${roomDetail.id}`, {
-				state: { roomDetail },
-				replace: true,
-			});
+			const targetPath = `/game-room/${roomDetail.id}`;
+			if (pathname === targetPath) return;
+			navigate(targetPath, { state: { roomDetail }, replace: true });
 		};
 		socket.on(RoomEvents.RESTORED, onRestored);
 		return () => {
 			socket.off(RoomEvents.RESTORED, onRestored);
 		};
-	}, [user, navigate]);
+	}, [user, navigate, pathname]);
 
 	useEffect(() => {
 		if (!authReady) return;
