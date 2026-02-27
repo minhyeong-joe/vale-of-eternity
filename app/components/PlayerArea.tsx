@@ -43,7 +43,7 @@ interface PlayerAreaProps {
 	isActive?: boolean;
 	/** Current game phase — needed to decide which actions are available */
 	phase?: Phase | "";
-	round?: number;
+	round?: number | null;
 	gameStatus?: GameStatus;
 	isHost?: boolean;
 	isReady?: boolean;
@@ -67,12 +67,14 @@ function CompactPlayerArea({
 	gameStatus,
 	isHost,
 	isReady,
+	round,
 }: {
 	player: Player;
 	isActive: boolean;
 	gameStatus?: GameStatus;
 	isHost?: boolean;
 	isReady?: boolean;
+	round: number | null;
 }) {
 	// For opponents: hand is face-down, modelled as N placeholder cards
 	const handPlaceholders: Card[] = Array.from(
@@ -151,7 +153,7 @@ function CompactPlayerArea({
 				{/* Summoned — flex-1 so it fills the available space */}
 				<div className="flex flex-col gap-1 flex-1 min-w-0">
 					<span className="text-slate-400 text-[9px] uppercase tracking-wide">
-						Summoned ({player.summonedCards.length})
+						Summoned ({player.summonedCards.length} {round ? `/ ${round}` : ""})
 					</span>
 					<CardStack
 						cards={player.summonedCards}
@@ -260,7 +262,7 @@ function FullPlayerArea({
 	player: Player;
 	isMyTurn: boolean;
 	phase: Phase | "";
-	round: number;
+	round: number | null;
 	gameStatus?: GameStatus;
 	isHost?: boolean;
 	isReady?: boolean;
@@ -345,7 +347,7 @@ function FullPlayerArea({
 				{/* Summoned / area cards */}
 				<div className="flex flex-col gap-1.5 flex-1 min-w-0">
 					<span className="text-slate-300 text-xs font-medium">
-						Summoned ({player.summonedCards.length})
+						Summoned ({player.summonedCards.length} {round ? `/ ${round}` : ""})
 					</span>
 					{player.summonedCards.length === 0 ? (
 						<span className="text-slate-500 text-xs italic">
@@ -517,6 +519,7 @@ export function PlayerArea({
 			gameStatus={gameStatus}
 			isHost={isHost}
 			isReady={isReady}
+			round={round}
 		/>
 	);
 }

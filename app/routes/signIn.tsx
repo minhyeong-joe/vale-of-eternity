@@ -9,7 +9,6 @@ import { signUp } from "../apis/userAPI";
 import { SignUp } from "../components/signUp";
 import { useUser } from "../contexts/UserContext";
 import { useEffect } from "react";
-import "./signIn.css";
 
 const signInSchema = z.object({
 	username: z.string().min(1, "Username is required"),
@@ -99,7 +98,7 @@ export default function AuthPage() {
 	}, []);
 
 	return (
-		<div className="sign-in-container fixed inset-0 bg-cover bg-center bg-no-repeat overflow-y-auto">
+		<div className="voe-background fixed inset-0 bg-cover bg-center bg-no-repeat overflow-y-auto">
 			{/* Background Overlay */}
 			<div className="fixed inset-0 bg-black/40" />
 

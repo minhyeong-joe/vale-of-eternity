@@ -14,6 +14,35 @@ body {
   }
 }
 
+.voe-background {
+    background-image: url('/cover.jpg');
+    background-size: cover;
+    background-position: center 10%;
+    background-repeat: no-repeat;
+}
+
+.title-glow {
+    text-shadow:
+        0 0 15px rgba(212, 165, 116, 0.5),
+        0 0 25px rgba(201, 146, 46, 0.35),
+        0 0 35px rgba(184, 134, 11, 0.2);
+}
+
+.highlight-flash {
+  animation: highlightFlash 1s ease-out;
+}
+@keyframes highlightFlash {
+  0% {
+    background-color: transparent;
+  }
+  40% {
+    background-color: #fde68a;
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
 .sonner-toast[data-toaster-id="game-toaster"] {
   background: #1e293b;
   border: 2px solid #38bdf8;

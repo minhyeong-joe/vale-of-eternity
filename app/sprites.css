@@ -4,9 +4,11 @@
 }
 
 /* Scale utilities for sprites */
-.sprite.x100 { transform: scale(1); transform-origin: top left; }
-.sprite.x75 { transform: scale(0.75); transform-origin: top left; }
-.sprite.x50 { transform: scale(0.5); transform-origin: top left; }
+.sprite.x150 { transform: scale(1.5);}
+.sprite.x125 { transform: scale(1.25); }
+.sprite.x100 { transform: scale(1); }
+.sprite.x75 { transform: scale(0.75); }
+.sprite.x50 { transform: scale(0.5); }
 
 .sprite.card-back {
     width: 125px;

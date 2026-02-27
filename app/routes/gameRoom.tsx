@@ -951,6 +951,7 @@ export default function GameRoom() {
 											gameStatus={gameStatus}
 											isHost={opponentIsHost}
 											isReady={opponentIsReady}
+											round={gameState.round}
 										/>
 									</div>
 								);

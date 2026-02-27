@@ -12,8 +12,9 @@ import {
 	type RoomJoinedPayload,
 	type RoomErrorPayload,
 } from "../sockets/contract";
+
+import AppHeader from "~/components/AppHeader";
 import { JoinRoomModal } from "../components/JoinRoomModal";
-import "./lobby.css";
 import {
 	RoomSettingsModal,
 	type RoomSettingsFormData,
@@ -42,7 +43,7 @@ interface Room {
 
 export default function Lobby() {
 	const navigate = useNavigate();
-	const { user, logout } = useUser();
+	const { user } = useUser();
 	const [rooms, setRooms] = useState<Room[]>([]);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [showCreateModal, setShowCreateModal] = useState(false);
@@ -137,35 +138,12 @@ export default function Lobby() {
 
 	return (
 		<>
-			<div className="lobby-container fixed inset-0 bg-cover bg-center bg-no-repeat overflow-y-auto">
+			<div className="voe-background fixed inset-0 bg-cover bg-center bg-no-repeat overflow-y-auto">
 				{/* Background Overlay */}
 				<div className="fixed inset-0 bg-black/50" />
 
 				<div className="relative min-h-screen flex flex-col">
-					{/* Header */}
-					<header className="bg-slate-900/70 backdrop-blur-sm border-b border-slate-700/50 px-6 py-4">
-						<div className="max-w-5xl mx-auto flex items-center justify-between">
-							<h1 className="title-glow text-2xl font-bold text-white">
-								Vale of Eternity
-							</h1>
-							<div className="flex items-center gap-4">
-								<span className="text-slate-300 text-sm">
-									<i className="fa-solid fa-user mr-2 text-slate-400" />
-									{user.username}
-								</span>
-								<button
-									onClick={() => {
-										logout();
-										navigate("/");
-									}}
-									className="flex items-center gap-1.5 text-slate-400 hover:text-white text-sm transition-colors duration-200 cursor-pointer"
-								>
-									<i className="fa-solid fa-right-from-bracket" />
-									Sign Out
-								</button>
-							</div>
-						</div>
-					</header>
+					<AppHeader />
 
 					{/* Main Content */}
 					<main className="flex-1 p-6">
