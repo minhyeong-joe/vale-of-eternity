@@ -10,6 +10,7 @@ import {
 import type { Route } from "./+types/root";
 import { UserProvider } from "./contexts/UserContext";
 import { AuthGuard } from "./AuthGuard";
+import ServerLoader from "./components/ServerLoader";
 import { Toaster } from "sonner";
 import "./app.css";
 import "./sprites.css";
@@ -54,6 +55,7 @@ export default function App() {
 	return (
 		<UserProvider>
 			<AuthGuard>
+				<ServerLoader />
 				<Outlet />
 				<Toaster
 					position="top-left"
