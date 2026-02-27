@@ -12,12 +12,12 @@ import {
 	type RoomJoinedPayload,
 	type RoomErrorPayload,
 } from "../sockets/contract";
-import {
-	CreateRoomModal,
-	type CreateRoomFormData,
-} from "../components/CreateRoomModal";
 import { JoinRoomModal } from "../components/JoinRoomModal";
 import "./lobby.css";
+import {
+	RoomSettingsModal,
+	type RoomSettingsFormData,
+} from "~/components/RoomSettingsModal";
 
 export function meta({}: Route.MetaArgs) {
 	return [
@@ -118,7 +118,7 @@ export default function Lobby() {
 		setShowCreateModal(true);
 	};
 
-	const handleCreate = (data: CreateRoomFormData) => {
+	const handleCreate = (data: RoomSettingsFormData) => {
 		const payload: RoomCreatePayload = {
 			name: data.name,
 			pace: data.pace,
@@ -169,7 +169,7 @@ export default function Lobby() {
 
 					{/* Main Content */}
 					<main className="flex-1 p-6">
-						<div className="max-w-5xl mx-auto">
+						<div className="mx-auto w-full max-w-screen-2xl">
 							<div className="bg-slate-600/60 backdrop-blur-sm rounded-lg shadow-xl p-6">
 								{/* Panel Header */}
 								<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
@@ -359,10 +359,10 @@ export default function Lobby() {
 
 			{/* Create Room Modal */}
 			{showCreateModal && (
-				<CreateRoomModal
+				<RoomSettingsModal
 					defaultRoomName={`${user.username}'s Room`}
 					onClose={() => setShowCreateModal(false)}
-					onCreate={handleCreate}
+					onSave={handleCreate}
 				/>
 			)}
 

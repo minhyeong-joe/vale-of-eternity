@@ -906,7 +906,7 @@ export default function GameRoom() {
 						name: roomInfo?.name ?? "",
 						maxPlayers: roomInfo?.maxPlayers ?? 4,
 						pace: roomInfo?.pace ?? "chill",
-						password: "",
+						password: roomInfo?.password ?? "",
 					}}
 					currentPlayerCount={roomInfo?.currentPlayers ?? 0}
 					onSaveSettings={handleUpdateRoom}
