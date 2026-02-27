@@ -122,9 +122,9 @@ function CompactPlayerArea({
 									NOT READY
 								</span>
 							))}
-						{player.isFirstPlayer && (
+						{/* {player.isFirstPlayer && (
 							<span className="text-yellow-400 text-[9px] font-bold">★1st</span>
-						)}
+						)} */}
 						{isActive && (
 							<span className="inline-block w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse flex-shrink-0" />
 						)}
@@ -310,11 +310,11 @@ function FullPlayerArea({
 									NOT READY
 								</span>
 							))}
-						{player.isFirstPlayer && (
+						{/* {player.isFirstPlayer && (
 							<span className="text-yellow-400 text-xs font-bold">
 								★ 1st Player
 							</span>
-						)}
+						)} */}
 						{isMyTurn && (
 							<span className="text-amber-300 text-xs font-bold animate-pulse">
 								<i className="fa-solid fa-bolt mr-1 text-[10px]" />

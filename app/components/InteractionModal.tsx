@@ -151,8 +151,8 @@ export function InteractionModal({
 	if (interaction.forUserId !== myUserId) {
 		return createPortal(
 			<div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
-				<div className="bg-slate-800/90 border border-slate-600/80 rounded-xl shadow-2xl px-5 py-3 text-center">
-					<p className="text-slate-300 text-sm animate-pulse">
+				<div className="bg-slate-800/90 border border-slate-600/80 rounded-xl shadow-2xl px-8 py-5 text-center">
+					<p className="text-slate-300 text-lg animate-pulse">
 						Waiting for another player…
 					</p>
 				</div>

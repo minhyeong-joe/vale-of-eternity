@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router";
 import type { Route } from "./+types/gameRoom";
 import { useUser } from "../contexts/UserContext";
 import { toast } from "sonner";
+import api from "../apis/api";
 import { socket } from "../sockets/connection";
 import {
 	RoomEvents,
@@ -310,6 +311,15 @@ export function meta({}: Route.MetaArgs) {
 	];
 }
 
+const interactionLabel: Record<string, string> = {
+	target: "choose a target",
+	card: "choose a card",
+	cards: "choose cards",
+	choice: "make a choice",
+	discardThenSummon: "discard then summon",
+	stoneOverflow: "discard excess stones",
+};
+
 export default function GameRoom() {
 	const location = useLocation();
 	const navigate = useNavigate();
@@ -374,6 +384,27 @@ export default function GameRoom() {
 			return changed ? next : prev;
 		});
 	}, [roomInfo]);
+
+	// ping server to keep alive while game in progress to avoid inactivity
+	useEffect(() => {
+		if (gameStatus !== "in-progress") return;
+		if (user?.userId !== roomInfo?.hostUserId) return;
+		const ping = async () => {
+			try {
+				console.log("Pinging server to keep alive...");
+				await api.get("/health");
+			} catch (error) {
+				console.error("Failed to ping server:", error);
+			}
+		};
+		const pingInterval = setInterval(
+			() => {
+				ping();
+			},
+			1000 * 60 * 5, // 5 mins
+		);
+		return () => clearInterval(pingInterval);
+	}, [gameStatus, user?.userId, roomInfo?.hostUserId]);
 
 	useEffect(() => {
 		if (!user) return;
@@ -491,6 +522,7 @@ export default function GameRoom() {
 			if (gameStatusRef.current === "in-progress") {
 				if (newState.phase === "finished") {
 					playAudio("/audio/game-end.mp3");
+					setShowGameOver(true);
 				} else {
 					const anyScoreUp = newState.players.some((np) => {
 						const pp = prevState.players.find((p) => p.id === np.id);
@@ -502,7 +534,6 @@ export default function GameRoom() {
 
 			if (gameStatusRef.current === "finished") {
 				setGameStatus("finished");
-				setShowGameOver(true);
 			} else {
 				setGameStatus("in-progress");
 			}
@@ -579,15 +610,6 @@ export default function GameRoom() {
 				) : null;
 			};
 
-			const interactionLabel: Record<string, string> = {
-				target: "choose a target",
-				card: "choose a card",
-				cards: "choose cards",
-				choice: "make a choice",
-				discardThenSummon: "discard then summon",
-				stoneOverflow: "distribute excess stones",
-			};
-
 			let msg: React.ReactNode;
 			switch (action) {
 				case "start":
@@ -596,7 +618,7 @@ export default function GameRoom() {
 				case "hunt-pick":
 					msg = (
 						<span>
-							{username} claimed <b>{cardName}</b>
+							{username} hunted <b>{cardName}</b>
 						</span>
 					);
 					break;
@@ -682,20 +704,10 @@ export default function GameRoom() {
 				(p) => p.id === payload.forUserId,
 			);
 			const username = player?.username ?? "A player";
-			const cardName = C[payload.cardId]?.name ?? `#${payload.cardId}`;
-			const interactionLabel: Record<string, string> = {
-				target: "choose a target",
-				card: "choose a card",
-				cards: "choose cards",
-				choice: "make a choice",
-				discardThenSummon: "discard then summon",
-				stoneOverflow: "distribute excess stones",
-				genieActivation: "choose an active effect to copy",
-			};
 			const label = interactionLabel[payload.type] ?? payload.type;
 			toast(
 				<span>
-					{username} must {label} for <b>{cardName}</b>
+					{username} must {label}.
 				</span>,
 				{ toasterId: "game-toaster" },
 			);
@@ -991,9 +1003,9 @@ export default function GameRoom() {
 									<span className="text-white text-xs font-bold">
 										{p.score}
 									</span>
-									{p.isFirstPlayer && (
+									{/* {p.isFirstPlayer && (
 										<span className="text-yellow-400 text-[9px]">★</span>
-									)}
+									)} */}
 									{p.score >= 60 && (
 										<span className="text-yellow-300 text-[10px] font-bold">
 											60+
