@@ -33,6 +33,8 @@ export const links: Route.LinksFunction = () => [
 	},
 ];
 
+const BASE_URL = import.meta.env.VITE_BASE_URL || "http://localhost:5173";
+
 export function Layout({ children }: { children: React.ReactNode }) {
 	return (
 		<html lang="en">
@@ -45,8 +47,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
 					property="og:description"
 					content="Vale of Eternity on socket-based web application"
 				/>
-				<meta property="og:image" content="/cover.jpg" />
-				<meta property="og:url" content="https://vale-of-eternity.vercel.app" />
+				<meta property="og:image" content={`${BASE_URL}/cover.jpg`} />
+				<meta property="og:url" content={BASE_URL} />
 				<meta property="og:type" content="website" />
 				<meta name="twitter:card" content="summary_large_image" />
 				<meta name="twitter:title" content="Vale of Eternity" />
@@ -54,7 +56,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 					name="twitter:description"
 					content="Vale of Eternity on socket-based web application"
 				/>
-				<meta name="twitter:image" content="/cover.jpg" />
+				<meta name="twitter:image" content={`${BASE_URL}/cover.jpg`} />
 				<Meta />
 				<Links />
 			</head>
