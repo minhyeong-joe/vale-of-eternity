@@ -39,6 +39,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
 			<head>
 				<meta charSet="utf-8" />
 				<meta name="viewport" content="width=device-width, initial-scale=1" />
+				{/* Open Graph Meta Tags */}
+				<meta property="og:title" content="Vale of Eternity" />
+				<meta
+					property="og:description"
+					content="Vale of Eternity on socket-based web application"
+				/>
+				<meta property="og:image" content="/cover.jpg" />
+				<meta property="og:url" content="https://vale-of-eternity.vercel.app" />
+				<meta property="og:type" content="website" />
+				<meta name="twitter:card" content="summary_large_image" />
+				<meta name="twitter:title" content="Vale of Eternity" />
+				<meta
+					name="twitter:description"
+					content="Vale of Eternity on socket-based web application"
+				/>
+				<meta name="twitter:image" content="/cover.jpg" />
 				<Meta />
 				<Links />
 			</head>
