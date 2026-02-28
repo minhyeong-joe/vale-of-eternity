@@ -70,7 +70,6 @@ export function GameOverModal({ players, onClose }: GameOverModalProps) {
 									: p.rank === 3
 										? "3rd"
 										: `${p.rank}th`;
-						console.log(rankLabel);
 
 						return (
 							<div

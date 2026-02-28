@@ -29,7 +29,7 @@ body {
 }
 
 .highlight-flash {
-  animation: highlightFlash 1s ease-out;
+  animation: highlightFlash 1.5s ease-out;
 }
 @keyframes highlightFlash {
   0% {
