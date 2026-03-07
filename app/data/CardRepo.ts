@@ -430,7 +430,7 @@ export const CardRepo: Record<number, Card> = {
         id: 59, name: 'Tengu', family: 'wind', cost: 3,
         imagePath: '/assets/cards/wind/Tengu.webp',
         effects: [
-            { type: 'instant', description: ['Earn ', { sprite: 'description-stone-6' }, ' and put this card on the top of the draw deck.'] },
+            { type: 'instant', description: ['Earn ', { sprite: 'description-score-6' }, ' and put this card on the top of the draw deck.'] },
         ],
     },
     60: {
