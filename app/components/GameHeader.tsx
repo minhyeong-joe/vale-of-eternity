@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import type { Phase, Player, GameStatus } from "../types/game";
 import type { GamePace } from "./CreateRoomModal";
@@ -87,7 +87,41 @@ export function GameHeader({
 		left: number;
 		top: number;
 	} | null>(null);
+	const [menuOpen, setMenuOpen] = useState(false);
+	const [dropdownTop, setDropdownTop] = useState(0);
 	const triggerRef = useRef<HTMLDivElement>(null);
+	const headerRef = useRef<HTMLElement>(null);
+	const dropdownRef = useRef<HTMLDivElement>(null);
+
+	const closeMenu = useCallback(() => setMenuOpen(false), []);
+
+	const handleMenuToggle = useCallback(() => {
+		if (!menuOpen && headerRef.current) {
+			setDropdownTop(headerRef.current.getBoundingClientRect().bottom);
+		}
+		setMenuOpen((prev) => !prev);
+	}, [menuOpen]);
+
+	useEffect(() => {
+		if (!menuOpen) return;
+		const handleClick = (e: MouseEvent) => {
+			const target = e.target as Node;
+			if (
+				headerRef.current?.contains(target) ||
+				dropdownRef.current?.contains(target)
+			) return;
+			closeMenu();
+		};
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.key === "Escape") closeMenu();
+		};
+		document.addEventListener("mousedown", handleClick);
+		document.addEventListener("keydown", handleKeyDown);
+		return () => {
+			document.removeEventListener("mousedown", handleClick);
+			document.removeEventListener("keydown", handleKeyDown);
+		};
+	}, [menuOpen, closeMenu]);
 
 	const handleRoomInfoEnter = useCallback(() => {
 		if (!triggerRef.current) return;
@@ -113,17 +147,18 @@ export function GameHeader({
 
 	return (
 		<>
-			<header className="bg-slate-900/80 backdrop-blur-sm border-b border-slate-700/50 px-4 py-2.5 flex items-center gap-3">
+			<header ref={headerRef} className="bg-slate-900/80 backdrop-blur-sm border-b border-slate-700/50 px-4 py-2.5 flex items-center gap-3">
 				{/* Title */}
-				<h1 className="title-glow text-base font-bold text-white whitespace-nowrap flex-shrink-0">
-					Vale of Eternity
-				</h1>
+				<h1 className="title-glow text-base font-bold text-white flex-shrink-0 text-center leading-tight">
+				<span className="sm:hidden">Vale<br/>of<br/>Eternity</span>
+				<span className="hidden sm:inline whitespace-nowrap">Vale of Eternity</span>
+			</h1>
 
 				{/* Room name + info icon */}
 				{roomName && (
 					<div
 						ref={triggerRef}
-						className="flex items-center gap-1.5 text-slate-300 text-sm cursor-default select-none flex-shrink-0"
+						className="hidden sm:flex items-center gap-1.5 text-slate-300 text-sm cursor-default select-none flex-shrink-0"
 						onMouseEnter={handleRoomInfoEnter}
 						onMouseLeave={handleRoomInfoLeave}
 					>
@@ -136,7 +171,7 @@ export function GameHeader({
 				)}
 
 				{/* Separator */}
-				{roomName && <div className="w-px h-4 bg-slate-700 flex-shrink-0" />}
+				{roomName && <div className="hidden sm:block w-px h-4 bg-slate-700 flex-shrink-0" />}
 
 				{/* Game info cluster — changes based on game status */}
 				<div className="flex items-center gap-3 flex-wrap flex-1 min-w-0 justify-center">
@@ -226,7 +261,7 @@ export function GameHeader({
 				</div>
 
 				{/* Right side: Settings (host only, waiting only) + Leave */}
-				<div className="flex items-center gap-3 flex-shrink-0">
+				<div className="hidden sm:flex items-center gap-3 flex-shrink-0">
 					{isHost && status === "waiting" && roomSettings && onSaveSettings && (
 						<button
 							onClick={() => setShowSettings(true)}
@@ -234,7 +269,7 @@ export function GameHeader({
 							title="Room Settings"
 						>
 							<i className="fa-solid fa-gear" />
-							<span className="hidden sm:inline">Settings</span>
+							<span>Settings</span>
 						</button>
 					)}
 
@@ -243,9 +278,18 @@ export function GameHeader({
 						className="flex items-center gap-1.5 text-slate-400 hover:text-white text-sm transition-colors cursor-pointer whitespace-nowrap"
 					>
 						<i className="fa-solid fa-right-from-bracket" />
-						<span className="hidden sm:inline">Leave</span>
+						<span>Leave</span>
 					</button>
 				</div>
+
+				<button
+					onClick={handleMenuToggle}
+					className="sm:hidden flex items-center justify-center w-8 h-8 text-slate-400 hover:text-white transition-colors duration-200 cursor-pointer flex-shrink-0"
+					aria-label={menuOpen ? "Close menu" : "Open menu"}
+					aria-expanded={menuOpen}
+				>
+					<i className={`fa-solid ${menuOpen ? "fa-xmark" : "fa-bars"} text-lg`} />
+				</button>
 			</header>
 
 			{/* Room settings modal */}
@@ -260,6 +304,76 @@ export function GameHeader({
 					}}
 				/>
 			)}
+
+			{menuOpen &&
+				createPortal(
+					<div
+						ref={dropdownRef}
+						className="fixed left-0 right-0 z-[9998] bg-slate-900/95 backdrop-blur-sm border-b border-slate-700/50"
+						style={{ top: dropdownTop }}
+					>
+						<div className="flex flex-col px-4 py-3 gap-1">
+							{/* Room info */}
+							{roomName && (
+								<>
+									<div className="px-3 py-2 space-y-1.5">
+										<div className="flex items-center gap-2 text-sm text-white/90">
+											<i className="fa-solid fa-door-open text-slate-500 w-4 text-center text-xs" />
+											<span className="font-medium">{roomName}</span>
+										</div>
+										{roomHost && (
+											<div className="flex items-center gap-2 text-xs text-slate-300">
+												<i className="fa-solid fa-user text-slate-500 w-4 text-center" />
+												<span>Host: <span className="text-white font-medium">{roomHost}</span></span>
+											</div>
+										)}
+										{paceConf && (
+											<div className="flex items-center gap-2 text-xs text-slate-300">
+												<i className={`${paceConf.icon} text-slate-500 w-4 text-center`} />
+												<span>{paceConf.label}</span>
+											</div>
+										)}
+										<div className="flex items-center gap-2 text-xs text-slate-300">
+											{isPrivate ? (
+												<>
+													<i className="fa-solid fa-lock text-amber-500/80 w-4 text-center" />
+													<span className="text-amber-400/90">Private</span>
+												</>
+											) : (
+												<>
+													<i className="fa-solid fa-lock-open text-slate-500 w-4 text-center" />
+													<span>Public</span>
+												</>
+											)}
+										</div>
+									</div>
+									<div className="my-1 border-t border-slate-700/50" />
+								</>
+							)}
+
+							{/* Settings (host, waiting only) */}
+							{isHost && status === "waiting" && roomSettings && onSaveSettings && (
+								<button
+									onClick={() => { setShowSettings(true); closeMenu(); }}
+									className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700/30 transition-colors duration-200 cursor-pointer text-left"
+								>
+									<i className="fa-solid fa-gear w-4 text-center" />
+									Settings
+								</button>
+							)}
+
+							{/* Leave */}
+							<button
+								onClick={() => { onLeave(); closeMenu(); }}
+								className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700/30 transition-colors duration-200 cursor-pointer text-left"
+							>
+								<i className="fa-solid fa-right-from-bracket w-4 text-center" />
+								Leave
+							</button>
+						</div>
+					</div>,
+					document.body,
+				)}
 
 			{/* Room info tooltip — portalled to escape header stacking context */}
 			{tooltipPos &&
