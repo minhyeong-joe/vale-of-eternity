@@ -2,9 +2,11 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
 import { useUser } from "~/contexts/UserContext";
+import { useLang } from "~/contexts/LanguageContext";
 
 export default function AppHeader() {
 	const { user, logout } = useUser();
+	const { lang, toggleLang } = useLang();
 	const navigate = useNavigate();
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [dropdownTop, setDropdownTop] = useState(0);
@@ -48,8 +50,8 @@ export default function AppHeader() {
 				className="bg-slate-900/80 backdrop-blur-sm border-b border-slate-700/50 px-4 py-2.5 flex w-full items-center justify-between"
 			>
 				<h1 className="title-glow text-2xl font-bold text-white flex-shrink-0">
-				Vale of Eternity
-			</h1>
+					Vale of Eternity
+				</h1>
 
 				<div className="hidden sm:flex items-center gap-12 cursor-default select-none">
 					<a
@@ -69,6 +71,16 @@ export default function AppHeader() {
 				</div>
 
 				<div className="hidden sm:flex items-center gap-3 flex-shrink-0">
+					<button
+						onClick={toggleLang}
+						className="flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-white transition-colors duration-200 cursor-pointer select-none"
+						title="Switch language"
+					>
+						<span className={lang === "en" ? "text-white" : "text-slate-500"}>ENG</span>
+						<span className="text-slate-600">|</span>
+						<span className={lang === "ko" ? "text-white" : "text-slate-500"}>한국어</span>
+					</button>
+					<div className="w-px h-4 bg-slate-700" />
 					<span className="text-slate-300 text-sm">
 						<i className="fa-solid fa-user mr-2 text-slate-400" />
 						{user?.username || "guest"}
@@ -130,6 +142,17 @@ export default function AppHeader() {
 								<i className="fa-solid fa-user w-4 text-center text-slate-400" />
 								{user?.username || "guest"}
 							</div>
+							<button
+								onClick={toggleLang}
+								className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700/30 transition-colors duration-200 cursor-pointer text-left"
+							>
+								<i className="fa-solid fa-language w-4 text-center" />
+								<span>
+									<span className={lang === "en" ? "text-white font-semibold" : ""}>ENG</span>
+									{" / "}
+									<span className={lang === "ko" ? "text-white font-semibold" : ""}>한국어</span>
+								</span>
+							</button>
 							<button
 								onClick={() => { logout(); navigate("/"); closeMenu(); }}
 								className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-700/30 transition-colors duration-200 cursor-pointer text-left"

@@ -10,6 +10,7 @@ export type DescToken = string | { sprite: string };
 export interface CardEffect {
     type: EffectType;
     description: DescToken[];
+    descriptionKo?: DescToken[];
 }
 
 export interface Card {

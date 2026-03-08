@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { Card, Family } from "../types/game";
+import { useLang } from "../contexts/LanguageContext";
 
 // ─── Family accent colors (used for tooltip border) ────────────────────────
 
@@ -35,6 +36,7 @@ interface TooltipPanelProps {
 }
 
 function TooltipPanel({ card, left, top }: TooltipPanelProps) {
+	const { lang } = useLang();
 	const accent = ACCENT[card.family];
 	const familySprite = `description-${card.family}`;
 
@@ -82,7 +84,7 @@ function TooltipPanel({ card, left, top }: TooltipPanelProps) {
 								</div>
 							</div>
 							<div className="leading-snug" style={{ paddingTop: 3 }}>
-								{effect.description.map((token, i) =>
+								{(lang === "ko" && effect.descriptionKo ? effect.descriptionKo : effect.description).map((token, i) =>
 									typeof token === "string" ? (
 										<span
 											key={i}

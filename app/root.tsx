@@ -9,6 +9,7 @@ import {
 
 import type { Route } from "./+types/root";
 import { UserProvider } from "./contexts/UserContext";
+import { LanguageProvider } from "./contexts/LanguageContext";
 import { AuthGuard } from "./AuthGuard";
 import ServerLoader from "./components/ServerLoader";
 import { Toaster } from "sonner";
@@ -71,6 +72,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
 	return (
+		<LanguageProvider>
 		<UserProvider>
 			<AuthGuard>
 				<ServerLoader />
@@ -89,6 +91,7 @@ export default function App() {
 				/>
 			</AuthGuard>
 		</UserProvider>
+		</LanguageProvider>
 	);
 }
 
