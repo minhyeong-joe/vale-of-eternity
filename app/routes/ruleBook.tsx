@@ -14,6 +14,7 @@ import {
 import { PlayerArea, PlayerAvatar } from "~/components/PlayerArea";
 import { GameBoard } from "~/components/GameBoard";
 import { CardImage } from "~/components/CardStack";
+import { CardRepo } from "~/data/CardRepo";
 
 export function meta({}: Route.MetaArgs) {
 	return [
@@ -950,6 +951,25 @@ export default function RuleBook() {
 								</p>
 
 								{/* End of Game End Section */}
+
+								<hr className="border-slate-400/80 my-6" />
+								
+								{/* Card Repo - All Cards */}
+								<li className="text-xl font-semibold text-white my-8" id="all-cards">
+									Card Repository
+								</li>
+								<p className="text-slate-300 mb-4">
+									Here you can find all the cards in the game sorted by their
+									family. You can hover on each card to see its
+									details and effects.
+								</p>
+								<div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-5 gap-2">
+									{Object.values(CardRepo).map((card) => (
+										<div className="flex flex-col items-center" key={card.id}>
+											<CardImage card={card} width={120} height={180} />
+										</div>
+									))}
+								</div>
 							</ul>
 						</div>
 					</div>
