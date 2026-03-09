@@ -969,6 +969,7 @@ export default function GameRoom() {
 											isHost={opponentIsHost}
 											isReady={opponentIsReady}
 											round={gameState.round}
+											turnNumber={gameState.round !== null ? ((gameState.players.findIndex((x) => x.id === p.id) - gameState.firstPlayerIndex + gameState.players.length) % gameState.players.length) + 1 : undefined}
 										/>
 									</div>
 								);
@@ -1033,6 +1034,7 @@ export default function GameRoom() {
 							phase={gameState.phase}
 							round={gameState.round}
 							gameStatus={gameStatus}
+							turnNumber={gameState.round !== null ? ((gameState.players.findIndex((x) => x.id === myPlayer.id) - gameState.firstPlayerIndex + gameState.players.length) % gameState.players.length) + 1 : undefined}
 							isHost={isHost}
 							isReady={
 								roomInfo.players.find((p) => p.userId === myPlayerId)

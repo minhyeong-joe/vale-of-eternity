@@ -10,6 +10,13 @@ import { CardStack, CardImage } from "./CardStack";
 import { StoneRow } from "./StoneRow";
 import { PaymentModal } from "./PaymentModal";
 
+function ordinal(n: number) {
+	if (n === 1) return "1st";
+	if (n === 2) return "2nd";
+	if (n === 3) return "3rd";
+	return `${n}th`;
+}
+
 // ─── Player avatar sprite ──────────────────────────────────────────────────
 
 export function PlayerAvatar({ color, size }: { color: string; size: number }) {
@@ -47,6 +54,8 @@ interface PlayerAreaProps {
 	gameStatus?: GameStatus;
 	isHost?: boolean;
 	isReady?: boolean;
+	/** 1-based turn order for this player in the current round */
+	turnNumber?: number;
 	/** Called with cardId + payment when player summons a hand card */
 	onSummon?: (cardId: number, payment: StoneCount) => void;
 	/** Called with cardId + payment when player removes a summoned card */
@@ -68,6 +77,7 @@ function CompactPlayerArea({
 	isHost,
 	isReady,
 	round,
+	turnNumber,
 }: {
 	player: Player;
 	isActive: boolean;
@@ -75,6 +85,7 @@ function CompactPlayerArea({
 	isHost?: boolean;
 	isReady?: boolean;
 	round: number | null;
+	turnNumber?: number;
 }) {
 	// For opponents: hand is face-down, modelled as N placeholder cards
 	const handPlaceholders: Card[] = Array.from(
@@ -125,6 +136,11 @@ function CompactPlayerArea({
 						{/* {player.isFirstPlayer && (
 							<span className="text-yellow-400 text-[9px] font-bold">★1st</span>
 						)} */}
+						{turnNumber !== undefined && (
+							<span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-slate-700/80 text-slate-300 border border-slate-600/50">
+								{ordinal(turnNumber)}
+							</span>
+						)}
 						{isActive && (
 							<span className="inline-block w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse flex-shrink-0" />
 						)}
@@ -253,6 +269,7 @@ function FullPlayerArea({
 	gameStatus,
 	isHost,
 	isReady,
+	turnNumber,
 	genieActivationOptions,
 	onSummon,
 	onRemove,
@@ -266,6 +283,7 @@ function FullPlayerArea({
 	gameStatus?: GameStatus;
 	isHost?: boolean;
 	isReady?: boolean;
+	turnNumber?: number;
 	genieActivationOptions?: number[];
 	onSummon?: (cardId: number, payment: StoneCount) => void;
 	onRemove?: (cardId: number, payment: StoneCount) => void;
@@ -315,6 +333,11 @@ function FullPlayerArea({
 								★ 1st Player
 							</span>
 						)} */}
+						{turnNumber !== undefined && (
+							<span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-700/80 text-slate-300 border border-slate-600/50">
+								{ordinal(turnNumber)}
+							</span>
+						)}
 						{isMyTurn && (
 							<span className="text-amber-300 text-xs font-bold animate-pulse">
 								<i className="fa-solid fa-bolt mr-1 text-[10px]" />
@@ -488,6 +511,7 @@ export function PlayerArea({
 	gameStatus,
 	isHost,
 	isReady,
+	turnNumber,
 	genieActivationOptions,
 	onSummon,
 	onRemove,
@@ -504,6 +528,7 @@ export function PlayerArea({
 				gameStatus={gameStatus}
 				isHost={isHost}
 				isReady={isReady}
+				turnNumber={turnNumber}
 				genieActivationOptions={genieActivationOptions}
 				onSummon={onSummon}
 				onRemove={onRemove}
@@ -520,6 +545,7 @@ export function PlayerArea({
 			isHost={isHost}
 			isReady={isReady}
 			round={round}
+			turnNumber={turnNumber}
 		/>
 	);
 }
