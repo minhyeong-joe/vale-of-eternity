@@ -337,6 +337,7 @@ export default function GameRoom() {
 
 	const [anims, setAnims] = useState<AnimSpec[]>([]);
 	const [showGameOver, setShowGameOver] = useState(false);
+	const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 	const [selfReconnectStart, setSelfReconnectStart] = useState<number | null>(
 		null,
 	);
@@ -819,6 +820,10 @@ export default function GameRoom() {
 	// ── Handlers ─────────────────────────────────────────────────────────────
 
 	const handleRoomLeave = () => {
+		setShowLeaveConfirm(true);
+	};
+
+	const confirmLeave = () => {
 		socket.emit(RoomEvents.LEAVE, { roomId: roomInfo?.id });
 		navigate("/lobby");
 	};
@@ -1057,6 +1062,31 @@ export default function GameRoom() {
 				anims={anims}
 				onAnimDone={(id) => setAnims((prev) => prev.filter((a) => a.id !== id))}
 			/>
+
+			{/* Leave confirmation modal */}
+			{showLeaveConfirm && (
+				<div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center">
+					<div className="bg-slate-800 border border-slate-700 rounded-xl p-6 flex flex-col gap-4 w-72 shadow-xl">
+						<p className="text-white text-sm font-medium text-center">
+							Are you sure you want to leave?
+						</p>
+						<div className="flex gap-3">
+							<button
+								onClick={confirmLeave}
+								className="flex-1 bg-red-600 hover:bg-red-500 text-white text-sm font-medium py-2 rounded-lg transition-colors cursor-pointer"
+							>
+								Leave
+							</button>
+							<button
+								onClick={() => setShowLeaveConfirm(false)}
+								className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium py-2 rounded-lg transition-colors cursor-pointer"
+							>
+								Cancel
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
 
 			{/* Game over modal */}
 			{showGameOver && (
